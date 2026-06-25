@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>不動産賃貸 案件管理システム</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #2563EB;
+    --primary-dark: #1d4ed8;
+    --primary-light: #dbeafe;
+    --success: #16a34a;
+    --success-light: #dcfce7;
+    --warning: #d97706;
+    --warning-light: #fef3c7;
+    --danger: #dc2626;
+    --danger-light: #fee2e2;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --sidebar-w: 220px;
+  }
+  body { font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; background: var(--gray-50); color: var(--gray-800); font-size: 14px; line-height: 1.5; }
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%); }
+  .login-card { background: #fff; border-radius: 16px; padding: 48px 40px; width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+  .login-logo { text-align: center; margin-bottom: 32px; }
+  .login-logo h1 { font-size: 22px; font-weight: 700; color: var(--primary); margin-top: 8px; }
+  .login-logo p { color: var(--gray-500); font-size: 13px; }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+  .form-group input { width: 100%; padding: 10px 14px; border: 1.5px solid var(--gray-300); border-radius: 8px; font-size: 14px; outline: none; transition: border-color .2s; }
+  .form-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+  .btn-primary { width: 100%; padding: 12px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background .2s; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .login-hint { text-align: center; font-size: 12px; color: var(--gray-400); margin-top: 16px; }
+  #app { display: none; min-height: 100vh; }
+  .sidebar { position: fixed; top: 0; left: 0; width: var(--sidebar-w); height: 100vh; background: var(--gray-900); display: flex; flex-direction: column; z-index: 100; }
+  .sidebar-logo { padding: 20px 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .sidebar-logo h2 { color: #fff; font-size: 14px; font-weight: 700; line-height: 1.3; }
+  .sidebar-logo span { color: var(--gray-400); font-size: 11px; }
+  .sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 0; }
+  .nav-section { padding: 16px 16px 4px; font-size: 10px; font-weight: 700; color: var(--gray-500); letter-spacing: .08em; text-transform: uppercase; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; color: var(--gray-400); cursor: pointer; border-radius: 0; transition: all .15s; font-size: 13.5px; position: relative; }
+  .nav-item:hover { color: #fff; background: rgba(255,255,255,.07); }
+  .nav-item.active { color: #fff; background: var(--primary); }
+  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+  .nav-badge { margin-left: auto; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 9px; }
+  .sidebar-footer { padding: 16px; border-top: 1px solid rgba(255,255,255,.1); }
+  .user-info { display: flex; align-items: center; gap: 10px; }
+  .user-avatar { width: 34px; height: 34px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 13px; }
+  .user-name { color: #fff; font-size: 13px; font-weight: 600; }
+  .user-role { color: var(--gray-400); font-size: 11px; }
+  .logout-btn { margin-left: auto; background: none; border: none; color: var(--gray-500); cursor: pointer; font-size: 18px; }
+  .logout-btn:hover { color: #fff; }
+  .main { margin-left: var(--sidebar-w); min-height: 100vh; }
+  .topbar { background: #fff; border-bottom: 1px solid var(--gray-200); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .topbar h1 { font-size: 18px; font-weight: 700; color: var(--gray-800); }
+  .topbar-actions { display: flex; align-items: center; gap: 12px; }
+  .page { display: none; padding: 24px; }
+  .page.active { display: block; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid var(--gray-200); }
+  .kpi-label { font-size: 12px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .kpi-value { font-size: 32px; font-weight: 800; color: var(--gray-900); margin: 4px 0; }
+  .kpi-sub { font-size: 12px; color: var(--gray-500); }
+  .kpi-trend-up { color: var(--success); }
+  .kpi-trend-down { color: var(--danger); }
+  .section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .card { background: #fff; border-radius: 12px; border: 1px solid var(--gray-200); overflow: hidden; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
+  .card-header h3 { font-size: 14px; font-weight: 700; color: var(--gray-800); }
+  .card-body { padding: 0; }
+  .alert-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--gray-100); cursor: pointer; }
+  .alert-item:last-child { border-bottom: none; }
+  .alert-item:hover { background: var(--gray-50); }
+  .alert-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .dot-danger { background: var(--danger); }
+  .dot-warning { background: var(--warning); }
+  .dot-info { background: var(--primary); }
+  .alert-text { font-size: 13px; color: var(--gray-700); }
+  .alert-meta { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+  .activity-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--gray-100); }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .ai-blue { background: var(--primary-light); }
+  .ai-green { background: var(--success-light); }
+  .ai-yellow { background: var(--warning-light); }
+  .activity-text { font-size: 13px; color: var(--gray-700); }
+  .activity-time { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+  .table-toolbar { display: flex; align-items: center; gap: 12px; padding: 16px 0; }
+  .search-box { display: flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid var(--gray-200); border-radius: 8px; padding: 8px 12px; flex: 1; max-width: 320px; }
+  .search-box input { border: none; outline: none; font-size: 13px; width: 100%; background: transparent; }
+  .filter-group { display: flex; gap: 8px; }
+  .filter-btn { padding: 7px 14px; border: 1.5px solid var(--gray-200); border-radius: 8px; background: #fff; font-size: 13px; cursor: pointer; color: var(--gray-600); transition: all .15s; }
+  .filter-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .filter-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+  .btn-new { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; margin-left: auto; }
+  .btn-new:hover { background: var(--primary-dark); }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--gray-50); }
+  th { padding: 11px 16px; text-align: left; font-size: 12px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; border-bottom: 1px solid var(--gray-200); }
+  td { padding: 13px 16px; font-size: 13.5px; color: var(--gray-700); border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+  tr:hover td { background: var(--gray-50); }
+  tr:last-child td { border-bottom: none; }
+  .table-card { background: #fff; border-radius: 12px; border: 1px solid var(--gray-200); overflow: hidden; }
+  .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+  .badge-new { background: #eff6ff; color: #2563eb; }
+  .badge-responding { background: #fef3c7; color: #d97706; }
+  .badge-viewed { background: #f0fdf4; color: #16a34a; }
+  .badge-contracted { background: #dcfce7; color: #15803d; }
+  .badge-lost { background: var(--gray-100); color: var(--gray-500); }
+  .badge-active { background: #dcfce7; color: #15803d; }
+  .badge-renewal { background: #fef3c7; color: #d97706; }
+  .badge-notice { background: #fee2e2; color: #dc2626; }
+  .badge-ended { background: var(--gray-100); color: var(--gray-500); }
+  .badge-vacant { background: #eff6ff; color: #2563eb; }
+  .badge-occupied { background: #dcfce7; color: #15803d; }
+  .badge-applying { background: #fef3c7; color: #d97706; }
+  .badge-paid { background: #dcfce7; color: #15803d; }
+  .badge-unpaid { background: #fee2e2; color: #dc2626; }
+  .badge-late { background: #fef3c7; color: #d97706; }
+  .btn-sm { padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; border: 1.5px solid var(--gray-200); background: #fff; color: var(--gray-600); transition: all .15s; }
+  .btn-sm:hover { border-color: var(--primary); color: var(--primary); }
+  .detail-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; }
+  .detail-panel { position: absolute; right: 0; top: 0; height: 100%; width: 520px; background: #fff; overflow-y: auto; box-shadow: -8px 0 40px rgba(0,0,0,.15); }
+  .detail-header { padding: 20px 24px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #fff; z-index: 10; }
+  .detail-header h2 { font-size: 17px; font-weight: 700; }
+  .close-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--gray-400); padding: 4px; }
+  .close-btn:hover { color: var(--gray-700); }
+  .detail-body { padding: 24px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .info-item label { font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: .05em; display: block; margin-bottom: 4px; }
+  .info-item span { font-size: 14px; color: var(--gray-800); font-weight: 500; }
+  .section-title { font-size: 13px; font-weight: 700; color: var(--gray-600); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-200); }
+  .timeline { }
+  .timeline-item { display: flex; gap: 12px; margin-bottom: 16px; }
+  .timeline-dot-wrap { display: flex; flex-direction: column; align-items: center; }
+  .timeline-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 4px; }
+  .timeline-line { width: 2px; flex: 1; background: var(--gray-200); margin: 4px 4px 0; }
+  .timeline-content { flex: 1; background: var(--gray-50); border-radius: 8px; padding: 10px 12px; }
+  .timeline-meta { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+  .timeline-text { font-size: 13px; color: var(--gray-700); }
+  .timeline-form { display: flex; gap: 8px; margin-top: 16px; }
+  .timeline-form input { flex: 1; padding: 8px 12px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-size: 13px; outline: none; }
+  .timeline-form input:focus { border-color: var(--primary); }
+  .timeline-form button { padding: 8px 16px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; }
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; }
+  .cal-day-name { text-align: center; font-size: 12px; font-weight: 700; color: var(--gray-500); padding: 8px 0; }
+  .cal-cell { min-height: 90px; background: #fff; border: 1px solid var(--gray-200); border-radius: 8px; padding: 6px; }
+  .cal-cell.other-month { opacity: .4; }
+  .cal-cell.today { border-color: var(--primary); }
+  .cal-date { font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 4px; }
+  .cal-date.today-num { background: var(--primary); color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .cal-event { background: var(--primary-light); color: var(--primary); font-size: 10px; padding: 2px 5px; border-radius: 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .cal-event.green { background: var(--success-light); color: var(--success); }
+  .cal-event.yellow { background: var(--warning-light); color: var(--warning); }
+  .cal-nav { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+  .cal-nav h2 { font-size: 18px; font-weight: 700; }
+  .cal-nav-btn { background: #fff; border: 1.5px solid var(--gray-200); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 16px; }
+  .month-tabs { display: flex; gap: 4px; margin-bottom: 20px; overflow-x: auto; }
+  .month-tab { padding: 6px 14px; border-radius: 99px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--gray-200); color: var(--gray-600); white-space: nowrap; }
+  .month-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .finance-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .fin-card { background: #fff; border-radius: 12px; border: 1px solid var(--gray-200); padding: 20px; }
+  .fin-card-label { font-size: 12px; font-weight: 600; color: var(--gray-500); }
+  .fin-card-value { font-size: 28px; font-weight: 800; margin: 6px 0 4px; }
+  .fin-card-value.green { color: var(--success); }
+  .fin-card-value.red { color: var(--danger); }
+  .fin-card-value.blue { color: var(--primary); }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 300; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #fff; border-radius: 16px; padding: 28px 32px; width: 520px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+  .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+  .modal .form-group { margin-bottom: 16px; }
+  .modal .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal select, .modal input, .modal textarea { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; }
+  .modal select:focus, .modal input:focus, .modal textarea:focus { border-color: var(--primary); }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+  .btn-cancel { padding: 9px 20px; border: 1.5px solid var(--gray-200); border-radius: 8px; background: #fff; font-size: 14px; cursor: pointer; }
+  .btn-submit { padding: 9px 24px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  canvas { max-width: 100%; }
+  .chart-wrap { padding: 20px; }
+  .empty-state { text-align: center; padding: 48px; color: var(--gray-400); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .tag { display: inline-block; background: var(--gray-100); color: var(--gray-600); font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-right: 4px; }
+  .alert-banner { background: var(--warning-light); border: 1px solid #fcd34d; border-radius: 8px; padding: 10px 16px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: #92400e; margin-bottom: 16px; }
+  .scrollable { overflow-y: auto; max-height: 320px; }
+  .platform-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+  .platform-tab { padding:8px 18px; border-radius:99px; font-size:13px; font-weight:600; cursor:pointer; border:2px solid var(--gray-200); color:var(--gray-600); background:#fff; transition:all .15s; }
+  .platform-tab:hover { border-color:var(--gray-400); }
+  .platform-tab.active { color:#fff; border-color:transparent; }
+  .platform-tab[data-pl="note"].active { background:#2D6A4F; }
+  .platform-tab[data-pl="youtube"].active { background:#C62828; }
+  .platform-tab[data-pl="instagram"].active { background:#7B1FA2; }
+  .platform-tab[data-pl="threads"].active { background:#1565C0; }
+  .platform-tab[data-pl="x"].active { background:#212121; }
+  .platform-tab[data-pl="ga4"].active { background:#E65100; }
+  .content-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+  .cstat { background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:14px 18px; }
+  .cstat-label { font-size:11px; color:var(--gray-400); font-weight:600; text-transform:uppercase; }
+  .cstat-value { font-size:24px; font-weight:800; color:var(--gray-800); margin-top:4px; }
+  .badge-draft { background:#f3f4f6; color:#374151; }
+  .badge-scheduled { background:#dbeafe; color:#1d4ed8; }
+  .badge-published { background:#dcfce7; color:#15803d; }
+  .content-toolbar { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .content-filter { display:flex; gap:6px; }
+  .sync-note { background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:10px 14px; font-size:12px; color:#9a3412; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div style="font-size:36px">🏢</div>
+      <h1>不動産賃貸<br>案件管理システム</h1>
+      <p>社内スタッフ専用</p>
+    </div>
+    <div class="form-group">
+      <label>メールアドレス</label>
+      <input type="email" id="login-email" value="admin@ace-official.co.jp" placeholder="メールアドレス">
+    </div>
+    <div class="form-group">
+      <label>パスワード</label>
+      <input type="password" id="login-pass" value="password" placeholder="パスワード">
+    </div>
+    <button class="btn-primary" onclick="doLogin()">ログイン</button>
+    <p class="login-hint">デモ：任意のメール・パスワードでログイン可</p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h2>🏢 不動産賃貸<br>案件管理</h2>
+      <span>v1.0</span>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">メイン</div>
+      <div class="nav-item active" onclick="navigate('dashboard')"><span class="icon">📊</span> ダッシュボード</div>
+      <div class="nav-section">業務管理</div>
+      <div class="nav-item" onclick="navigate('inquiries')"><span class="icon">💬</span> 問い合わせ管理<span class="nav-badge" id="badge-inquiries">3</span></div>
+      <div class="nav-item" onclick="navigate('calendar')"><span class="icon">📅</span> 内見カレンダー</div>
+      <div class="nav-item" onclick="navigate('properties')"><span class="icon">🏠</span> 物件管理</div>
+      <div class="nav-item" onclick="navigate('tenants')"><span class="icon">👤</span> 入居者管理</div>
+      <div class="nav-item" onclick="navigate('contracts')"><span class="icon">📄</span> 契約管理</div>
+      <div class="nav-section">財務</div>
+      <div class="nav-item" onclick="navigate('finance')"><span class="icon">💰</span> 収支管理<span class="nav-badge" id="badge-finance">2</span></div>
+      <div class="nav-item" onclick="navigate('report')"><span class="icon">📈</span> 収支レポート</div>
+      <div class="nav-section">コンテンツ</div>
+      <div class="nav-item" onclick="navigate('content')"><span class="icon">📝</span> コンテンツ管理</div>
+      <div class="nav-section">管理者</div>
+      <div class="nav-item" onclick="navigate('users')"><span class="icon">👥</span> ユーザー管理</div>
+      <div class="nav-item" onclick="navigate('settings')"><span class="icon">⚙️</span> 設定</div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">小</div>
+        <div><div class="user-name">小口 大貴</div><div class="user-role">管理者</div></div>
+        <button class="logout-btn" onclick="doLogout()" title="ログアウト">↩</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="topbar">
+      <h1 id="page-title">ダッシュボード</h1>
+      <div class="topbar-actions"><span style="font-size:12px;color:var(--gray-500)">2026年6月22日（月）</span></div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">空室率</div><div class="kpi-value">12<span style="font-size:18px">%</span></div><div class="kpi-sub">全50室中 6室空室 <span class="kpi-trend-up">▲ 前月比+2%</span></div></div>
+        <div class="kpi-card"><div class="kpi-label">今月の入金率</div><div class="kpi-value">94<span style="font-size:18px">%</span></div><div class="kpi-sub">44/47件 入金済 <span class="kpi-trend-down">▼ 2件未入金</span></div></div>
+        <div class="kpi-card"><div class="kpi-label">新規問い合わせ</div><div class="kpi-value">18</div><div class="kpi-sub">今月累計 <span class="kpi-trend-up">▲ 前月比+5件</span></div></div>
+        <div class="kpi-card"><div class="kpi-label">今月の成約数</div><div class="kpi-value">4</div><div class="kpi-sub">成約率 22% <span class="kpi-trend-up">▲ 前月比+1件</span></div></div>
+      </div>
+      <div class="section-grid">
+        <div class="card">
+          <div class="card-header"><h3>⚠️ 要対応リスト</h3><span style="font-size:12px;color:var(--gray-400)">6件</span></div>
+          <div class="card-body scrollable">
+            <div class="alert-item" onclick="navigate('inquiries')"><div class="alert-dot dot-danger"></div><div><div class="alert-text">未対応の問い合わせが3件あります</div><div class="alert-meta">問い合わせ管理 → 新規ステータス</div></div></div>
+            <div class="alert-item" onclick="navigate('finance')"><div class="alert-dot dot-danger"></div><div><div class="alert-text">【未入金】田中 一郎 – サンシャイン102号室（6月分）</div><div class="alert-meta">入金期日：2026/06/05 を過ぎています</div></div></div>
+            <div class="alert-item" onclick="navigate('finance')"><div class="alert-dot dot-warning"></div><div><div class="alert-text">【未入金】佐藤 花子 – グランドヒルズ305号室（6月分）</div><div class="alert-meta">入金期日：2026/06/05 を過ぎています</div></div></div>
+            <div class="alert-item" onclick="navigate('contracts')"><div class="alert-dot dot-warning"></div><div><div class="alert-text">契約更新期日まで30日 – 山田 太郎（エステート201号室）</div><div class="alert-meta">契約満了日：2026/07/22</div></div></div>
+            <div class="alert-item" onclick="navigate('contracts')"><div class="alert-dot dot-warning"></div><div><div class="alert-text">契約更新期日まで58日 – 鈴木 美咲（パークサイド103号室）</div><div class="alert-meta">契約満了日：2026/08/19</div></div></div>
+            <div class="alert-item" onclick="navigate('inquiries')"><div class="alert-dot dot-info"></div><div><div class="alert-text">内見後フォローアップ未実施 – 高橋 健二</div><div class="alert-meta">内見日：2026/06/18（4日経過）</div></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>🕐 直近アクティビティ</h3></div>
+          <div class="card-body scrollable">
+            <div class="activity-item"><div class="activity-icon ai-blue">💬</div><div><div class="activity-text">新規問い合わせ登録 – 加藤 美奈子（SUUMO経由）</div><div class="activity-time">小口 大貴 ・ 本日 14:32</div></div></div>
+            <div class="activity-item"><div class="activity-icon ai-green">✅</div><div><div class="activity-text">入金確認済み – 木村 達也（サンシャイン204号室 6月分）</div><div class="activity-time">田村 スタッフ ・ 本日 11:05</div></div></div>
+            <div class="activity-item"><div class="activity-icon ai-blue">📅</div><div><div class="activity-text">内見予約登録 – 山本 健一 → パークサイド201号室 6/25 14:00</div><div class="activity-time">小口 大貴 ・ 本日 10:48</div></div></div>
+            <div class="activity-item"><div class="activity-icon ai-yellow">📄</div><div><div class="activity-text">契約情報更新 – 松本 純子（エステート305号室）賃料改定</div><div class="activity-time">田村 スタッフ ・ 昨日 17:20</div></div></div>
+            <div class="activity-item"><div class="activity-icon ai-green">🏠</div><div><div class="activity-text">物件情報更新 – グランドヒルズ 写真アップロード</div><div class="activity-time">小口 大貴 ・ 昨日 15:33</div></div></div>
+            <div class="activity-item"><div class="activity-icon ai-blue">💬</div><div><div class="activity-text">問い合わせステータス変更 – 高橋 健二 → 内見済</div><div class="activity-time">田村 スタッフ ・ 昨日 10:15</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header"><h3>📊 今月の収支サマリー（2026年6月）</h3></div><div class="chart-wrap"><canvas id="dashboard-chart" height="80"></canvas></div></div>
+    </div>
+
+    <!-- INQUIRIES -->
+    <div class="page" id="page-inquiries">
+      <div class="table-toolbar">
+        <div class="search-box"><span>🔍</span><input type="text" placeholder="顧客名・物件名で検索..." oninput="filterInquiries(this.value)"></div>
+        <div class="filter-group">
+          <button class="filter-btn active" onclick="setInqFilter(this,'all')">すべて</button>
+          <button class="filter-btn" onclick="setInqFilter(this,'new')">新規</button>
+          <button class="filter-btn" onclick="setInqFilter(this,'responding')">対応中</button>
+          <button class="filter-btn" onclick="setInqFilter(this,'viewed')">内見済</button>
+          <button class="filter-btn" onclick="setInqFilter(this,'contracted')">成約</button>
+          <button class="filter-btn" onclick="setInqFilter(this,'lost')">失注</button>
+        </div>
+        <button class="btn-new" onclick="openModal('inquiry')">＋ 新規登録</button>
+      </div>
+      <div class="table-card"><table id="inquiry-table"><thead><tr><th>顧客名</th><th>連絡先</th><th>希望物件</th><th>流入経路</th><th>ステータス</th><th>担当者</th><th>登録日</th><th>操作</th></tr></thead><tbody id="inquiry-tbody"></tbody></table></div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="page" id="page-calendar">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="changeMonth(-1)">◀</button>
+        <h2 id="cal-title"></h2>
+        <button class="cal-nav-btn" onclick="changeMonth(1)">▶</button>
+        <button class="btn-new" style="margin-left:auto" onclick="openModal('viewing')">＋ 内見予約登録</button>
+      </div>
+      <div class="card"><div class="card-body" style="padding:16px"><div class="cal-header"><div class="cal-day-name">日</div><div class="cal-day-name">月</div><div class="cal-day-name">火</div><div class="cal-day-name">水</div><div class="cal-day-name">木</div><div class="cal-day-name">金</div><div class="cal-day-name">土</div></div><div class="calendar-grid" id="calendar-grid"></div></div></div>
+      <div style="margin-top:16px"><div class="card"><div class="card-header"><h3>📅 今月の内見予約一覧</h3></div><div class="card-body"><table><thead><tr><th>日時</th><th>顧客名</th><th>物件・部屋</th><th>担当者</th><th>ステータス</th></tr></thead><tbody id="viewing-tbody"></tbody></table></div></div></div>
+    </div>
+
+    <!-- PROPERTIES -->
+    <div class="page" id="page-properties">
+      <div class="table-toolbar"><div class="search-box"><span>🔍</span><input type="text" placeholder="物件名・住所で検索..." oninput="filterProperties(this.value)"></div><button class="btn-new" onclick="openModal('property')">＋ 新規登録</button></div>
+      <div class="table-card"><table><thead><tr><th>物件名</th><th>住所</th><th>構造</th><th>築年数</th><th>総戸数</th><th>空室</th><th>空室率</th><th>操作</th></tr></thead><tbody id="property-tbody"></tbody></table></div>
+    </div>
+
+    <!-- TENANTS -->
+    <div class="page" id="page-tenants">
+      <div class="table-toolbar"><div class="search-box"><span>🔍</span><input type="text" placeholder="氏名・物件名で検索..." oninput="filterTenants(this.value)"></div><button class="btn-new" onclick="openModal('tenant')">＋ 新規登録</button></div>
+      <div class="table-card"><table><thead><tr><th>氏名</th><th>連絡先</th><th>入居物件</th><th>部屋番号</th><th>入居日</th><th>月額賃料</th><th>操作</th></tr></thead><tbody id="tenant-tbody"></tbody></table></div>
+    </div>
+
+    <!-- CONTRACTS -->
+    <div class="page" id="page-contracts">
+      <div class="table-toolbar">
+        <div class="search-box"><span>🔍</span><input type="text" placeholder="入居者名・物件名で検索..."></div>
+        <div class="filter-group">
+          <button class="filter-btn active" onclick="setContFilter(this,'all')">すべて</button>
+          <button class="filter-btn" onclick="setContFilter(this,'active')">契約中</button>
+          <button class="filter-btn" onclick="setContFilter(this,'renewal_pending')">更新待</button>
+          <button class="filter-btn" onclick="setContFilter(this,'notice')">解約予告</button>
+          <button class="filter-btn" onclick="setContFilter(this,'ended')">退去済</button>
+        </div>
+        <button class="btn-new" onclick="openModal('contract')">＋ 新規登録</button>
+      </div>
+      <div class="table-card"><table><thead><tr><th>入居者</th><th>物件・部屋</th><th>契約期間</th><th>月額賃料</th><th>敷金</th><th>礼金</th><th>ステータス</th><th>操作</th></tr></thead><tbody id="contract-tbody"></tbody></table></div>
+    </div>
+
+    <!-- FINANCE -->
+    <div class="page" id="page-finance">
+      <div class="month-tabs" id="month-tabs"></div>
+      <div class="finance-summary">
+        <div class="fin-card"><div class="fin-card-label">入金済</div><div class="fin-card-value green" id="fin-paid">¥0</div><div style="font-size:12px;color:var(--gray-400)" id="fin-paid-count">0件</div></div>
+        <div class="fin-card"><div class="fin-card-label">未入金</div><div class="fin-card-value red" id="fin-unpaid">¥0</div><div style="font-size:12px;color:var(--gray-400)" id="fin-unpaid-count">0件</div></div>
+        <div class="fin-card"><div class="fin-card-label">入金率</div><div class="fin-card-value blue" id="fin-rate">0%</div><div style="font-size:12px;color:var(--gray-400)">今月</div></div>
+      </div>
+      <div class="table-card"><table><thead><tr><th>入居者</th><th>物件・部屋</th><th>月額賃料</th><th>入金ステータス</th><th>入金日</th><th>操作</th></tr></thead><tbody id="finance-tbody"></tbody></table></div>
+    </div>
+
+    <!-- REPORT -->
+    <div class="page" id="page-report">
+      <div class="finance-summary">
+        <div class="fin-card"><div class="fin-card-label">年間収入合計</div><div class="fin-card-value green">¥52,440,000</div><div style="font-size:12px;color:var(--gray-400)">2026年度（見込み）</div></div>
+        <div class="fin-card"><div class="fin-card-label">年間費用合計</div><div class="fin-card-value red">¥8,320,000</div><div style="font-size:12px;color:var(--gray-400)">修繕費・管理費等</div></div>
+        <div class="fin-card"><div class="fin-card-label">年間純利益</div><div class="fin-card-value blue">¥44,120,000</div><div style="font-size:12px;color:var(--gray-400)">収益率 84.1%</div></div>
+      </div>
+      <div class="card" style="margin-bottom:16px"><div class="card-header"><h3>📊 月次収支グラフ（2026年）</h3></div><div class="chart-wrap"><canvas id="report-chart" height="100"></canvas></div></div>
+      <div class="card"><div class="card-header"><h3>月次収支一覧</h3><button class="btn-sm">CSV出力</button></div><table><thead><tr><th>月</th><th>収入（賃料）</th><th>支出（費用）</th><th>純利益</th><th>入金率</th></tr></thead><tbody id="report-tbody"></tbody></table></div>
+    </div>
+
+    <!-- USERS -->
+    <div class="page" id="page-users">
+      <div class="table-toolbar"><button class="btn-new" onclick="openModal('user')">＋ スタッフを招待</button></div>
+      <div class="table-card"><table><thead><tr><th>氏名</th><th>メールアドレス</th><th>権限</th><th>ステータス</th><th>最終ログイン</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="user-avatar" style="width:28px;height:28px;font-size:11px">小</div>小口 大貴</div></td><td>oguchi@ace-official.co.jp</td><td><span class="badge badge-active">管理者</span></td><td><span class="badge badge-active">有効</span></td><td>2026/06/22 14:32</td><td><button class="btn-sm">編集</button></td></tr>
+          <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="user-avatar" style="width:28px;height:28px;font-size:11px;background:#16a34a">田</div>田村 スタッフ</div></td><td>tamura@ace-official.co.jp</td><td><span class="badge badge-responding">スタッフ</span></td><td><span class="badge badge-active">有効</span></td><td>2026/06/22 11:05</td><td><button class="btn-sm">編集</button></td></tr>
+          <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="user-avatar" style="width:28px;height:28px;font-size:11px;background:#7c3aed">中</div>中村 営業</div></td><td>nakamura@ace-official.co.jp</td><td><span class="badge badge-responding">スタッフ</span></td><td><span class="badge badge-active">有効</span></td><td>2026/06/21 16:40</td><td><button class="btn-sm">編集</button></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <div style="max-width:600px">
+        <div class="card" style="margin-bottom:16px"><div class="card-header"><h3>🏢 自社情報</h3></div><div class="card-body" style="padding:20px">
+          <div class="form-group"><label>会社名</label><input type="text" value="ACE株式会社" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+          <div class="form-group"><label>メールアドレス</label><input type="text" value="info@ace-official.co.jp" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+          <div class="form-group"><label>電話番号</label><input type="text" value="03-XXXX-XXXX" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+          <button class="btn-primary" style="width:auto;padding:9px 24px">保存</button>
+        </div></div>
+        <div class="card"><div class="card-header"><h3>🔔 通知設定</h3></div><div class="card-body" style="padding:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><div style="font-size:13px;font-weight:600">契約満了アラート（60日前）</div><div style="font-size:12px;color:var(--gray-400)">契約満了60日前にメール通知</div></div><input type="checkbox" checked style="width:18px;height:18px;cursor:pointer"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><div style="font-size:13px;font-weight:600">契約満了アラート（30日前）</div><div style="font-size:12px;color:var(--gray-400)">契約満了30日前にメール通知</div></div><input type="checkbox" checked style="width:18px;height:18px;cursor:pointer"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><div style="font-size:13px;font-weight:600">未入金アラート</div><div style="font-size:12px;color:var(--gray-400)">入金期日超過時にメール通知</div></div><input type="checkbox" checked style="width:18px;height:18px;cursor:pointer"></div>
+          <button class="btn-primary" style="width:auto;padding:9px 24px">保存</button>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- CONTENT MANAGEMENT -->
+    <div class="page" id="page-content">
+      <div class="sync-note">📊 このデータは <strong>コンテンツ管理表.xlsx</strong> と連動しています。Claudeに「〇〇の記事を追加して」「ステータスを更新して」と指示するとxlsxも同時に更新されます。</div>
+      <div class="platform-tabs">
+        <div class="platform-tab active" data-pl="note" onclick="switchPlatform('note',this)">📝 note</div>
+        <div class="platform-tab" data-pl="youtube" onclick="switchPlatform('youtube',this)">▶ YouTube</div>
+        <div class="platform-tab" data-pl="instagram" onclick="switchPlatform('instagram',this)">📸 Instagram</div>
+        <div class="platform-tab" data-pl="threads" onclick="switchPlatform('threads',this)">🧵 Threads</div>
+        <div class="platform-tab" data-pl="x" onclick="switchPlatform('x',this)">✕ X</div>
+        <div class="platform-tab" data-pl="ga4" onclick="switchPlatform('ga4',this)">📈 GA4</div>
+      </div>
+      <div class="content-stats" id="content-stats"></div>
+      <div class="content-toolbar">
+        <div class="search-box"><span>🔍</span><input type="text" id="content-search" placeholder="タイトル・内容で検索..." oninput="renderContentTable()"></div>
+        <div class="content-filter" id="content-filter">
+          <button class="filter-btn active" onclick="setContentFilter(this,'all')">すべて</button>
+          <button class="filter-btn" onclick="setContentFilter(this,'下書き')">下書き</button>
+          <button class="filter-btn" onclick="setContentFilter(this,'予約済')">予約済</button>
+          <button class="filter-btn" onclick="setContentFilter(this,'公開済')">公開済</button>
+        </div>
+        <button class="btn-new" onclick="openContentModal()">＋ 新規追加</button>
+      </div>
+      <div class="table-card"><table id="content-table"><thead id="content-thead"></thead><tbody id="content-tbody"></tbody></table></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- DETAIL OVERLAY -->
+<div class="detail-overlay" id="inquiry-detail-overlay" onclick="closeDetail()">
+  <div class="detail-panel" onclick="event.stopPropagation()">
+    <div class="detail-header"><h2 id="detail-title">問い合わせ詳細</h2><button class="close-btn" onclick="closeDetail()">×</button></div>
+    <div class="detail-body">
+      <div id="detail-status-row" style="margin-bottom:16px;display:flex;align-items:center;gap:12px">
+        <div id="detail-status-badge"></div>
+        <select id="detail-status-select" onchange="updateInquiryStatus(this.value)" style="padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+          <option value="new">新規</option><option value="responding">対応中</option><option value="viewed">内見済</option><option value="contracted">成約</option><option value="lost">失注</option>
+        </select>
+      </div>
+      <div class="info-grid" id="detail-info"></div>
+      <div class="section-title">対応タイムライン</div>
+      <div class="timeline" id="detail-timeline"></div>
+      <div class="timeline-form"><input type="text" id="timeline-input" placeholder="対応メモを入力..."><button onclick="addTimelineNote()">追記</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h2 id="modal-title">新規登録</h2>
+    <div id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="btn-submit" onclick="submitModal()">登録する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== SUPABASE ====================
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let properties = [];
+let inquiries = [], tenants = [], contracts = [], payments = [], viewings = [];
+
+let currentPage = 'dashboard';
+let currentInqFilter = 'all';
+let currentContFilter = 'all';
+let calendarDate = new Date(2026, 5, 1);
+let selectedInquiryId = null;
+let currentFinanceMonth = '2026-06';
+
+function showApp(user) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  const name = user?.user_metadata?.name || user?.email?.split('@')[0] || 'ユーザー';
+  document.querySelector('.user-name').textContent = name;
+  document.querySelector('.user-avatar').textContent = name.charAt(0).toUpperCase();
+}
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-pass').value;
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { alert('ログインエラー: ' + error.message); return; }
+  showApp(data.user); await initApp();
+}
+async function doLogout() {
+  await sb.auth.signOut();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+window.addEventListener('load', async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) { showApp(session.user); await initApp(); }
+});
+
+function navigate(page) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => { if (el.getAttribute('onclick')?.includes(`'${page}'`)) el.classList.add('active'); });
+  document.getElementById(`page-${page}`).classList.add('active');
+  currentPage = page;
+  const titles = { dashboard:'ダッシュボード', inquiries:'問い合わせ管理', calendar:'内見カレンダー', properties:'物件管理', tenants:'入居者管理', contracts:'契約管理', finance:'収支管理', report:'収支レポート', users:'ユーザー管理', settings:'設定', content:'コンテンツ管理' };
+  if (page === 'content') initContent();
+  document.getElementById('page-title').textContent = titles[page] || page;
+  if (page === 'report') renderReportChart();
+}
+
+async function initApp() {
+  try {
+    const [p, i, t, c, pay, v, cn, cy, ci, ct, cx, cg] = await Promise.all([
+      sb.from('properties').select('*').order('id'),
+      sb.from('inquiries').select('*, inquiry_logs(id,text,user_name,created_at)').order('created_at', { ascending: false }),
+      sb.from('tenants').select('*').order('id'),
+      sb.from('contracts').select('*').order('id'),
+      sb.from('payments').select('*').order('id'),
+      sb.from('viewings').select('*').order('date', { ascending: false }),
+      sb.from('content_note').select('*').order('id'),
+      sb.from('content_youtube').select('*').order('id'),
+      sb.from('content_instagram').select('*').order('id'),
+      sb.from('content_threads').select('*').order('id'),
+      sb.from('content_x').select('*').order('id'),
+      sb.from('content_ga4').select('*').order('date', { ascending: false }),
+    ]);
+    properties = p.data || [];
+    inquiries = (i.data || []).map(inq => ({ ...inq, logs: (inq.inquiry_logs || []).map(l => ({ text: l.text, time: l.created_at ? l.created_at.slice(0,16).replace('T',' ') : '', user: l.user_name || '' })) }));
+    tenants = t.data || [];
+    contracts = (c.data || []).map(r => ({ ...r, start: r.start_date, end: r.end_date }));
+    payments = (pay.data || []).map(r => ({ ...r, paid_date: r.paid_date ? r.paid_date.replace(/-/g,'/') : '' }));
+    viewings = v.data || [];
+    contentDB.note = cn.data || []; contentDB.youtube = cy.data || []; contentDB.instagram = ci.data || [];
+    contentDB.threads = ct.data || []; contentDB.x = cx.data || []; contentDB.ga4 = cg.data || [];
+  } catch(e) { console.error('データ読み込みエラー:', e); }
+  renderInquiries(); renderProperties(); renderTenants(); renderContracts();
+  renderCalendar(); renderFinance(); renderReport(); renderDashboardChart(); initMonthTabs();
+  updateBadges();
+}
+function updateBadges() {
+  const ni = inquiries.filter(i => i.status === 'new').length;
+  const bi = document.getElementById('badge-inquiries');
+  bi.textContent = ni; bi.style.display = ni ? '' : 'none';
+  const np = payments.filter(p => p.status !== 'paid' && p.month === currentFinanceMonth).length;
+  const bf = document.getElementById('badge-finance');
+  bf.textContent = np; bf.style.display = np ? '' : 'none';
+}
+
+function statusBadge(s) {
+  const map = { new: ['badge-new','新規'], responding: ['badge-responding','対応中'], viewed: ['badge-viewed','内見済'], contracted: ['badge-contracted','成約'], lost: ['badge-lost','失注'] };
+  const [cls, label] = map[s] || ['', s];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+function renderInquiries(filter) {
+  filter = filter || currentInqFilter;
+  const tbody = document.getElementById('inquiry-tbody');
+  let rows = inquiries.filter(i => filter === 'all' || i.status === filter);
+  tbody.innerHTML = rows.map(i => `<tr><td><strong>${i.name}</strong></td><td>${i.phone}</td><td>${i.property}</td><td><span class="tag">${i.source}</span></td><td>${statusBadge(i.status)}</td><td>${i.assignee || '<span style="color:var(--gray-400)">未割当</span>'}</td><td>${i.date}</td><td><button class="btn-sm" onclick="openInquiryDetail(${i.id})">詳細</button></td></tr>`).join('');
+}
+function filterInquiries(q) {
+  const tbody = document.getElementById('inquiry-tbody');
+  let rows = inquiries.filter(i => (currentInqFilter === 'all' || i.status === currentInqFilter) && (i.name.includes(q) || i.property.includes(q)));
+  tbody.innerHTML = rows.map(i => `<tr><td><strong>${i.name}</strong></td><td>${i.phone}</td><td>${i.property}</td><td><span class="tag">${i.source}</span></td><td>${statusBadge(i.status)}</td><td>${i.assignee || '<span style="color:var(--gray-400)">未割当</span>'}</td><td>${i.date}</td><td><button class="btn-sm" onclick="openInquiryDetail(${i.id})">詳細</button></td></tr>`).join('');
+}
+function setInqFilter(btn, f) {
+  currentInqFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => { if (b.closest('#page-inquiries')) b.classList.remove('active'); });
+  btn.classList.add('active'); renderInquiries();
+}
+function openInquiryDetail(id) {
+  selectedInquiryId = id;
+  const inq = inquiries.find(i => i.id === id);
+  document.getElementById('detail-title').textContent = `${inq.name} の問い合わせ`;
+  document.getElementById('detail-status-badge').innerHTML = statusBadge(inq.status);
+  document.getElementById('detail-status-select').value = inq.status;
+  document.getElementById('detail-info').innerHTML = `<div class="info-item"><label>顧客名</label><span>${inq.name}</span></div><div class="info-item"><label>電話番号</label><span>${inq.phone}</span></div><div class="info-item"><label>メール</label><span>${inq.email}</span></div><div class="info-item"><label>希望物件</label><span>${inq.property}</span></div><div class="info-item"><label>流入経路</label><span>${inq.source}</span></div><div class="info-item"><label>担当者</label><span>${inq.assignee || '未割当'}</span></div><div class="info-item"><label>登録日</label><span>${inq.date}</span></div><div class="info-item" style="grid-column:1/-1"><label>備考</label><span>${inq.notes}</span></div>`;
+  renderTimeline(inq);
+  document.getElementById('inquiry-detail-overlay').style.display = 'block';
+}
+function renderTimeline(inq) {
+  const tl = document.getElementById('detail-timeline');
+  tl.innerHTML = inq.logs.map((l, idx) => `<div class="timeline-item"><div class="timeline-dot-wrap"><div class="timeline-dot"></div>${idx < inq.logs.length - 1 ? '<div class="timeline-line"></div>' : ''}</div><div class="timeline-content"><div class="timeline-text">${l.text}</div><div class="timeline-meta">${l.user} ・ ${l.time}</div></div></div>`).join('') || '<div style="color:var(--gray-400);font-size:13px">対応履歴はありません</div>';
+}
+async function addTimelineNote() {
+  const input = document.getElementById('timeline-input');
+  if (!input.value.trim()) return;
+  const { data: { user } } = await sb.auth.getUser();
+  const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || '担当者';
+  const { data, error } = await sb.from('inquiry_logs').insert({ inquiry_id: selectedInquiryId, text: input.value, user_name: userName }).select();
+  if (!error && data) {
+    const inq = inquiries.find(i => i.id === selectedInquiryId);
+    inq.logs.push({ text: data[0].text, time: data[0].created_at.slice(0,16).replace('T',' '), user: data[0].user_name });
+    input.value = ''; renderTimeline(inq);
+  }
+}
+async function updateInquiryStatus(s) {
+  await sb.from('inquiries').update({ status: s }).eq('id', selectedInquiryId);
+  const inq = inquiries.find(i => i.id === selectedInquiryId);
+  inq.status = s;
+  document.getElementById('detail-status-badge').innerHTML = statusBadge(s);
+  renderInquiries(); updateBadges();
+}
+function closeDetail() { document.getElementById('inquiry-detail-overlay').style.display = 'none'; }
+
+function renderProperties(q) {
+  const tbody = document.getElementById('property-tbody');
+  let rows = properties.filter(p => !q || p.name.includes(q) || p.address.includes(q));
+  tbody.innerHTML = rows.map(p => { const vRate = Math.round(p.vacant / p.total * 100); return `<tr><td><strong>${p.name}</strong></td><td style="color:var(--gray-500);font-size:12px">${p.address}</td><td>${p.structure}</td><td>${p.age}年</td><td>${p.total}室</td><td><span class="badge ${p.vacant > 0 ? 'badge-new' : 'badge-contracted'}">${p.vacant}室</span></td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;background:var(--gray-200);border-radius:3px"><div style="width:${100-vRate}%;height:100%;background:var(--primary);border-radius:3px"></div></div><span style="font-size:12px;color:var(--gray-500)">${vRate}%空室</span></div></td><td><button class="btn-sm">詳細</button></td></tr>`; }).join('');
+}
+function filterProperties(q) { renderProperties(q); }
+
+function renderTenants(q) {
+  const tbody = document.getElementById('tenant-tbody');
+  let rows = tenants.filter(t => !q || t.name.includes(q) || t.property.includes(q));
+  tbody.innerHTML = rows.map(t => `<tr><td><strong>${t.name}</strong></td><td>${t.phone}</td><td>${t.property}</td><td>${t.room}</td><td>${t.move_in}</td><td>¥${t.rent.toLocaleString()}</td><td><button class="btn-sm">詳細</button></td></tr>`).join('');
+}
+function filterTenants(q) { renderTenants(q); }
+
+function contractStatusBadge(s) {
+  const map = { active: ['badge-active','契約中'], renewal_pending: ['badge-renewal','更新待'], notice: ['badge-notice','解約予告'], ended: ['badge-ended','退去済'] };
+  const [cls, label] = map[s] || ['', s];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+function renderContracts() {
+  const tbody = document.getElementById('contract-tbody');
+  let rows = contracts.filter(c => currentContFilter === 'all' || c.status === currentContFilter);
+  tbody.innerHTML = rows.map(c => `<tr><td><strong>${c.tenant}</strong></td><td>${c.property}</td><td style="font-size:12px">${c.start} 〜 ${c.end}</td><td>¥${c.rent.toLocaleString()}</td><td>¥${c.deposit.toLocaleString()}</td><td>¥${c.key_money.toLocaleString()}</td><td>${contractStatusBadge(c.status)}</td><td><button class="btn-sm">詳細</button></td></tr>`).join('');
+}
+function setContFilter(btn, f) {
+  currentContFilter = f;
+  document.querySelectorAll('#page-contracts .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); renderContracts();
+}
+
+function renderCalendar() {
+  const year = calendarDate.getFullYear(), month = calendarDate.getMonth();
+  document.getElementById('cal-title').textContent = `${year}年${month+1}月`;
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const today = new Date();
+  const grid = document.getElementById('calendar-grid');
+  let cells = '', d = 1, prevDays = new Date(year, month, 0).getDate();
+  for (let i = 0; i < 42; i++) {
+    if (i < firstDay) { const pd = prevDays - firstDay + i + 1; cells += `<div class="cal-cell other-month"><div class="cal-date">${pd}</div></div>`; }
+    else if (d <= daysInMonth) {
+      const isToday = (year === today.getFullYear() && month === today.getMonth() && d === today.getDate());
+      const dayViewings = viewings.filter(v => v.date === `${year}/${String(month+1).padStart(2,'0')}/${String(d).padStart(2,'0')}`);
+      cells += `<div class="cal-cell${isToday ? ' today' : ''}"><div class="cal-date${isToday ? ' today-num' : ''}">${d}</div>${dayViewings.map(v => `<div class="cal-event ${v.status === 'done' ? 'green' : ''}" title="${v.customer}">${v.time} ${v.customer}</div>`).join('')}</div>`;
+      d++;
+    } else { cells += `<div class="cal-cell other-month"><div class="cal-date">${d - daysInMonth}</div></div>`; d++; }
+    if (d > daysInMonth && i >= firstDay + daysInMonth - 1) break;
+  }
+  grid.innerHTML = cells;
+  document.getElementById('viewing-tbody').innerHTML = viewings.map(v => `<tr><td>${v.date} ${v.time}</td><td>${v.customer}</td><td>${v.property}</td><td>${v.assignee}</td><td><span class="badge ${v.status === 'done' ? 'badge-active' : 'badge-responding'}">${v.status === 'done' ? '完了' : '予定'}</span></td></tr>`).join('');
+}
+function changeMonth(d) { calendarDate.setMonth(calendarDate.getMonth() + d); renderCalendar(); }
+
+function initMonthTabs() {
+  const months = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
+  const labels = { '2026-01':'1月','2026-02':'2月','2026-03':'3月','2026-04':'4月','2026-05':'5月','2026-06':'6月' };
+  document.getElementById('month-tabs').innerHTML = months.map(m => `<div class="month-tab${m === currentFinanceMonth ? ' active' : ''}" onclick="selectMonth('${m}',this)">${labels[m]}</div>`).join('');
+}
+function selectMonth(m, el) {
+  currentFinanceMonth = m;
+  document.querySelectorAll('.month-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active'); renderFinance();
+}
+function payStatusBadge(s) {
+  const map = { paid: ['badge-paid','入金済'], unpaid: ['badge-unpaid','未入金'], late: ['badge-late','遅延'] };
+  const [cls, label] = map[s] || ['', s];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+function renderFinance() {
+  const rows = payments.filter(p => p.month === currentFinanceMonth);
+  const paid = rows.filter(p => p.status === 'paid');
+  const unpaid = rows.filter(p => p.status !== 'paid');
+  const paidTotal = paid.reduce((s, p) => s + p.rent, 0);
+  const unpaidTotal = unpaid.reduce((s, p) => s + p.rent, 0);
+  const rate = rows.length ? Math.round(paid.length / rows.length * 100) : 0;
+  document.getElementById('fin-paid').textContent = `¥${paidTotal.toLocaleString()}`;
+  document.getElementById('fin-paid-count').textContent = `${paid.length}件 入金済`;
+  document.getElementById('fin-unpaid').textContent = `¥${unpaidTotal.toLocaleString()}`;
+  document.getElementById('fin-unpaid-count').textContent = `${unpaid.length}件 未入金`;
+  document.getElementById('fin-rate').textContent = `${rate}%`;
+  document.getElementById('finance-tbody').innerHTML = rows.map(p => `<tr><td><strong>${p.tenant}</strong></td><td>${p.property}</td><td>¥${p.rent.toLocaleString()}</td><td>${payStatusBadge(p.status)}</td><td>${p.paid_date || '－'}</td><td>${p.status !== 'paid' ? `<button class="btn-sm" onclick="markPaid(${p.id})">入金済にする</button>` : ''}</td></tr>`).join('');
+}
+async function markPaid(id) {
+  const today = new Date().toISOString().slice(0,10);
+  const { error } = await sb.from('payments').update({ status: 'paid', paid_date: today }).eq('id', id);
+  if (!error) { const p = payments.find(p => p.id === id); p.status = 'paid'; p.paid_date = today.replace(/-/g,'/'); renderFinance(); updateBadges(); }
+}
+
+function renderReport() {
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const income =  [4320000, 4320000, 4320000, 4400000, 4400000, 4315000, 4400000, 4400000, 4400000, 4400000, 4400000, 4445000];
+  const expense = [320000, 450000, 280000, 890000, 310000, 280000, 400000, 650000, 290000, 320000, 780000, 350000];
+  document.getElementById('report-tbody').innerHTML = months.slice(0,6).map((m,i) => { const net = income[i] - expense[i]; return `<tr><td>2026年 ${m}</td><td style="color:var(--success);font-weight:600">¥${income[i].toLocaleString()}</td><td style="color:var(--danger)">¥${expense[i].toLocaleString()}</td><td style="font-weight:700">¥${net.toLocaleString()}</td><td>${i < 5 ? '100%' : '94%'}</td></tr>`; }).join('');
+}
+let reportChartInstance = null;
+function renderReportChart() {
+  const canvas = document.getElementById('report-chart'); if (!canvas) return;
+  const income = [4320000, 4320000, 4320000, 4400000, 4400000, 4315000, 4400000, 4400000, 4400000, 4400000, 4400000, 4445000];
+  const expense = [320000, 450000, 280000, 890000, 310000, 280000, 400000, 650000, 290000, 320000, 780000, 350000];
+  const labels = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  if (reportChartInstance) reportChartInstance.destroy();
+  reportChartInstance = new Chart(canvas, { type: 'bar', data: { labels, datasets: [{ label: '収入', data: income, backgroundColor: 'rgba(37,99,235,0.7)', borderRadius: 4 }, { label: '費用', data: expense, backgroundColor: 'rgba(220,38,38,0.5)', borderRadius: 4 }] }, options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { ticks: { callback: v => `¥${(v/10000).toFixed(0)}万` } } } } });
+}
+let dashChartInstance = null;
+function renderDashboardChart() {
+  const canvas = document.getElementById('dashboard-chart'); if (!canvas) return;
+  const months = ['1月','2月','3月','4月','5月','6月'];
+  const income = [4320000, 4320000, 4320000, 4400000, 4400000, 4315000];
+  const expense = [320000, 450000, 280000, 890000, 310000, 280000];
+  if (dashChartInstance) dashChartInstance.destroy();
+  dashChartInstance = new Chart(canvas, { type: 'line', data: { labels: months, datasets: [{ label: '収入', data: income, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', fill: true, tension: 0.3, pointRadius: 4 }, { label: '費用', data: expense, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)', fill: true, tension: 0.3, pointRadius: 4 }] }, options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { ticks: { callback: v => `¥${(v/10000).toFixed(0)}万` } } } } });
+}
+
+const modalForms = {
+  inquiry: { title: '問い合わせ新規登録', body: `<div class="form-row"><div class="form-group"><label>顧客名</label><input type="text" id="mf-name" placeholder="田中 一郎"></div><div class="form-group"><label>電話番号</label><input type="tel" id="mf-phone" placeholder="090-XXXX-XXXX"></div></div><div class="form-group"><label>メールアドレス</label><input type="email" id="mf-email" placeholder="example@example.com"></div><div class="form-row"><div class="form-group"><label>希望物件</label><select id="mf-property"><option>サンシャインハイツ</option><option>グランドヒルズ渋谷</option><option>パークサイド新宿</option><option>エステート目黒</option></select></div><div class="form-group"><label>流入経路</label><select id="mf-source"><option>SUUMO</option><option>HOME'S</option><option>直接</option><option>紹介</option><option>その他</option></select></div></div><div class="form-group"><label>担当者</label><select id="mf-assignee"><option>小口 大貴</option><option>田村 スタッフ</option><option>中村 営業</option></select></div><div class="form-group"><label>備考</label><textarea id="mf-notes" rows="3" placeholder="希望条件・メモなど"></textarea></div>` },
+  viewing: { title: '内見予約登録', body: `<div class="form-row"><div class="form-group"><label>日付</label><input type="date" id="mf-date"></div><div class="form-group"><label>時刻</label><input type="time" id="mf-time" value="14:00"></div></div><div class="form-group"><label>顧客名</label><input type="text" id="mf-customer" placeholder="顧客名"></div><div class="form-row"><div class="form-group"><label>物件</label><select id="mf-property2"><option>サンシャインハイツ</option><option>グランドヒルズ渋谷</option><option>パークサイド新宿</option><option>エステート目黒</option></select></div><div class="form-group"><label>部屋番号</label><input type="text" id="mf-room" placeholder="101号室"></div></div><div class="form-group"><label>担当者</label><select id="mf-assignee2"><option>小口 大貴</option><option>田村 スタッフ</option><option>中村 営業</option></select></div>` },
+  property: { title: '物件新規登録', body: `<div class="form-group"><label>物件名</label><input type="text" id="mf-name" placeholder="物件名"></div><div class="form-group"><label>住所</label><input type="text" id="mf-address" placeholder="東京都XX区XX1-1-1"></div><div class="form-row"><div class="form-group"><label>構造</label><select id="mf-structure"><option>RC造</option><option>SRC造</option><option>鉄骨造</option><option>木造</option></select></div><div class="form-group"><label>築年数</label><input type="number" id="mf-age" placeholder="10" min="0"></div></div><div class="form-row"><div class="form-group"><label>総戸数</label><input type="number" id="mf-total" placeholder="20" min="1"></div><div class="form-group"><label>空室数</label><input type="number" id="mf-vacant" placeholder="0" min="0"></div></div>` },
+  tenant: { title: '入居者新規登録', body: `<div class="form-row"><div class="form-group"><label>氏名</label><input type="text" id="mf-name" placeholder="山田 太郎"></div><div class="form-group"><label>電話番号</label><input type="tel" id="mf-phone" placeholder="090-XXXX-XXXX"></div></div><div class="form-group"><label>メールアドレス</label><input type="email" id="mf-email" placeholder="example@example.com"></div><div class="form-row"><div class="form-group"><label>入居物件</label><select id="mf-property"><option>サンシャインハイツ</option><option>グランドヒルズ渋谷</option><option>パークサイド新宿</option><option>エステート目黒</option></select></div><div class="form-group"><label>部屋番号</label><input type="text" id="mf-room" placeholder="101号室"></div></div><div class="form-row"><div class="form-group"><label>入居日</label><input type="date" id="mf-move_in"></div><div class="form-group"><label>月額賃料（円）</label><input type="number" id="mf-rent" placeholder="100000"></div></div>` },
+  contract: { title: '契約新規登録', body: `<div class="form-row"><div class="form-group"><label>入居者</label><select id="mf-tenant"><option>木村 達也</option><option>田中 一郎</option><option>山田 太郎</option><option>鈴木 美咲</option></select></div><div class="form-group"><label>物件・部屋</label><input type="text" id="mf-property" placeholder="サンシャインハイツ 101号室"></div></div><div class="form-row"><div class="form-group"><label>契約開始日</label><input type="date" id="mf-start_date"></div><div class="form-group"><label>契約終了日</label><input type="date" id="mf-end_date"></div></div><div class="form-row"><div class="form-group"><label>月額賃料（円）</label><input type="number" id="mf-rent" placeholder="100000"></div><div class="form-group"><label>敷金（円）</label><input type="number" id="mf-deposit" placeholder="200000"></div></div><div class="form-group"><label>礼金（円）</label><input type="number" id="mf-key_money" placeholder="100000"></div>` },
+  user: { title: 'スタッフを招待', body: `<div class="form-group"><label>氏名</label><input type="text" placeholder="氏名"></div><div class="form-group"><label>メールアドレス</label><input type="email" placeholder="staff@example.com"></div><div class="form-group"><label>権限</label><select><option>スタッフ</option><option>管理者</option></select></div>` }
+};
+let _modalType = '';
+function openModal(type) {
+  const f = modalForms[type]; if (!f) return;
+  _modalType = type;
+  document.getElementById('modal-title').textContent = f.title;
+  document.getElementById('modal-body').innerHTML = f.body;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('show'); }
+async function submitModal() {
+  const g = id => document.getElementById(id)?.value || '';
+  try {
+    if (_modalType === 'inquiry') {
+      const { data, error } = await sb.from('inquiries').insert({ name: g('mf-name'), phone: g('mf-phone'), email: g('mf-email'), property: g('mf-property'), source: g('mf-source'), assignee: g('mf-assignee'), notes: g('mf-notes'), status: 'new', date: new Date().toISOString().slice(0,10) }).select();
+      if (!error && data) { inquiries.unshift({ ...data[0], logs: [] }); renderInquiries(); updateBadges(); }
+    } else if (_modalType === 'viewing') {
+      const { data, error } = await sb.from('viewings').insert({ date: g('mf-date'), time: g('mf-time'), customer: g('mf-customer'), property: g('mf-property2') + ' ' + g('mf-room'), assignee: g('mf-assignee2'), status: 'scheduled' }).select();
+      if (!error && data) { viewings.unshift(data[0]); renderCalendar(); }
+    } else if (_modalType === 'property') {
+      const { data, error } = await sb.from('properties').insert({ name: g('mf-name'), address: g('mf-address'), structure: g('mf-structure'), age: parseInt(g('mf-age'))||0, total: parseInt(g('mf-total'))||0, vacant: parseInt(g('mf-vacant'))||0 }).select();
+      if (!error && data) { properties.push(data[0]); renderProperties(); }
+    } else if (_modalType === 'tenant') {
+      const { data, error } = await sb.from('tenants').insert({ name: g('mf-name'), phone: g('mf-phone'), email: g('mf-email'), property: g('mf-property'), room: g('mf-room'), move_in: g('mf-move_in'), rent: parseInt(g('mf-rent'))||0 }).select();
+      if (!error && data) { tenants.push(data[0]); renderTenants(); }
+    } else if (_modalType === 'contract') {
+      const { data, error } = await sb.from('contracts').insert({ tenant: g('mf-tenant'), property: g('mf-property'), start_date: g('mf-start_date'), end_date: g('mf-end_date'), rent: parseInt(g('mf-rent'))||0, deposit: parseInt(g('mf-deposit'))||0, key_money: parseInt(g('mf-key_money'))||0, status: 'active' }).select();
+      if (!error && data) { contracts.push({ ...data[0], start: data[0].start_date, end: data[0].end_date }); renderContracts(); }
+    }
+    closeModal(); showToast('✅ 登録しました');
+  } catch(e) { console.error(e); closeModal(); showToast('✅ 登録しました'); }
+}
+document.getElementById('modal-overlay').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+// ==================== CONTENT MANAGEMENT ====================
+let currentPlatform = 'note';
+let contentFilter = 'all';
+const contentDB = { note: [], youtube: [], instagram: [], threads: [], x: [], ga4: [] };
+
+const platformConfig = {
+  note: { label:"note", icon:"📝", headers: ["タイトル","カテゴリ","ステータス","公開予定日","公開日","ビュー数","スキ数","コメント","メモ","更新日","操作"], row: r => [`<strong>${r.title}</strong>`, `<span class="tag">${r.category||'－'}</span>`, contentStatusBadge(r.status), r.scheduled||'－', r.published||'－', r.views!=null && r.views!=='' ? Number(r.views).toLocaleString() : '－', r.likes!=null ? r.likes : '－', r.comments!=null ? r.comments : '－', `<span style="color:var(--gray-500);font-size:12px">${r.memo||''}</span>`, `<span style="font-size:11px;color:var(--gray-400)">${r.updated||''}</span>`], searchKey: r => r.title + (r.category||'') + (r.memo||''), formFields: ['title:タイトル:text','category:カテゴリ:text','status:ステータス:status','scheduled:公開予定日:date','memo:メモ:textarea'] },
+  youtube: { label:"YouTube", icon:"▶", headers: ["タイトル","ステータス","公開予定日時","再生回数","高評価","コメント","視聴維持率","メモ","更新日","操作"], row: r => [`<strong>${r.title}</strong><div style="font-size:11px;color:var(--gray-400)">${r.summary||''}</div>`, contentStatusBadge(r.status), r.scheduled||'－', r.views!=null ? Number(r.views).toLocaleString() : '－', r.likes!=null ? r.likes : '－', r.comments!=null ? r.comments : '－', r.retention||'－', `<span style="color:var(--gray-500);font-size:12px">${r.memo||''}</span>`, `<span style="font-size:11px;color:var(--gray-400)">${r.updated||''}</span>`], searchKey: r => r.title + (r.summary||'') + (r.memo||''), formFields: ['title:タイトル:text','summary:内容概要:text','status:ステータス:status','scheduled:公開予定日時:datetime-local','memo:メモ:textarea'] },
+  instagram: { label:"Instagram", icon:"📸", headers: ["キャプション","種別","ステータス","公開予定日時","リーチ数","いいね","保存数","コメント","メモ","更新日","操作"], row: r => [`<strong>${r.title}</strong>`, `<span class="tag">${r.type||'－'}</span>`, contentStatusBadge(r.status), r.scheduled||'－', r.reach!=null ? Number(r.reach).toLocaleString() : '－', r.likes!=null ? r.likes : '－', r.saves!=null ? r.saves : '－', r.comments!=null ? r.comments : '－', `<span style="color:var(--gray-500);font-size:12px">${r.memo||''}</span>`, `<span style="font-size:11px;color:var(--gray-400)">${r.updated||''}</span>`], searchKey: r => r.title + (r.type||'') + (r.memo||''), formFields: ['title:キャプション概要:text','type:種別(フィード/リール/ストーリー/カルーセル):text','status:ステータス:status','scheduled:公開予定日時:datetime-local','memo:メモ:textarea'] },
+  threads: { label:"Threads", icon:"🧵", headers: ["投稿内容","ステータス","公開予定日時","いいね","リポスト","返信","関連コンテンツ","メモ","更新日","操作"], row: r => [`<strong>${r.title}</strong>`, contentStatusBadge(r.status), r.scheduled||'－', r.likes!=null ? r.likes : '－', r.reposts!=null ? r.reposts : '－', r.replies!=null ? r.replies : '－', r.related ? `<span class="tag">${r.related}</span>` : '－', `<span style="color:var(--gray-500);font-size:12px">${r.memo||''}</span>`, `<span style="font-size:11px;color:var(--gray-400)">${r.updated||''}</span>`], searchKey: r => r.title + (r.memo||''), formFields: ['title:投稿内容概要:textarea','status:ステータス:status','scheduled:公開予定日時:datetime-local','related:関連コンテンツ:text','memo:メモ:text'] },
+  x: { label:"X", icon:"✕", headers: ["投稿内容","種別","ステータス","公開予定日時","インプレ","いいね","RT","返信","メモ","更新日","操作"], row: r => [`<strong>${r.title}</strong>`, `<span class="tag">${r.type||'－'}</span>`, contentStatusBadge(r.status), r.scheduled||'－', r.impressions!=null ? Number(r.impressions).toLocaleString() : '－', r.likes!=null ? r.likes : '－', r.retweets!=null ? r.retweets : '－', r.replies!=null ? r.replies : '－', `<span style="color:var(--gray-500);font-size:12px">${r.memo||''}</span>`, `<span style="font-size:11px;color:var(--gray-400)">${r.updated||''}</span>`], searchKey: r => r.title + (r.type||'') + (r.memo||''), formFields: ['title:投稿内容概要:textarea','type:種別(通常/スレッド/引用RT):text','status:ステータス:status','scheduled:公開予定日時:datetime-local','related:関連コンテンツ:text','memo:メモ:text'] },
+  ga4: { label:"GA4", icon:"📈", headers: ["日付","コンテンツ","URL","セッション","ユーザー","PV","直帰率","チャネル","デバイス","関連コンテンツ","操作"], row: r => [r.date, `<strong>${r.title}</strong>`, `<span style="font-size:11px;color:var(--primary)">${r.url}</span>`, r.sessions!=null ? Number(r.sessions).toLocaleString() : '－', r.users!=null ? Number(r.users).toLocaleString() : '－', r.pv!=null ? Number(r.pv).toLocaleString() : '－', r.bounce||'－', r.channel ? `<span class="tag">${r.channel}</span>` : '－', r.device||'－', r.related ? `<span class="tag">${r.related}</span>` : '－'], searchKey: r => r.title + (r.url||'') + (r.channel||''), formFields: ['date:日付:date','title:コンテンツタイトル:text','url:URL:text','sessions:セッション数:number','users:ユーザー数:number','pv:PV数:number','bounce:直帰率:text','channel:チャネル:text','device:デバイス:text','related:関連コンテンツ:text'] },
+};
+
+function contentStatusBadge(s) {
+  if (s === '下書き') return '<span class="badge badge-draft">下書き</span>';
+  if (s === '予約済') return '<span class="badge badge-scheduled">予約済</span>';
+  if (s === '公開済') return '<span class="badge badge-published">公開済</span>';
+  return `<span class="badge">${s||''}</span>`;
+}
+function switchPlatform(pl, el) {
+  currentPlatform = pl;
+  document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('content-search').value = '';
+  contentFilter = 'all';
+  document.querySelectorAll('#content-filter .filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#content-filter .filter-btn')[0].classList.add('active');
+  renderContentTable();
+}
+function setContentFilter(btn, f) {
+  contentFilter = f;
+  document.querySelectorAll('#content-filter .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); renderContentTable();
+}
+function renderContentStats() {
+  const data = contentDB[currentPlatform];
+  const total = data.length, draft = data.filter(r => r.status === '下書き').length, sched = data.filter(r => r.status === '予約済').length, pub = data.filter(r => r.status === '公開済').length;
+  const cfg = platformConfig[currentPlatform];
+  document.getElementById('content-stats').innerHTML = `<div class="cstat"><div class="cstat-label">${cfg.icon} ${cfg.label} 総数</div><div class="cstat-value">${total}</div></div><div class="cstat"><div class="cstat-label">下書き</div><div class="cstat-value" style="color:var(--gray-500)">${draft}</div></div><div class="cstat"><div class="cstat-label">予約済</div><div class="cstat-value" style="color:var(--primary)">${sched}</div></div><div class="cstat"><div class="cstat-label">公開済</div><div class="cstat-value" style="color:var(--success)">${pub}</div></div>`;
+}
+function renderContentTable() {
+  renderContentStats();
+  const cfg = platformConfig[currentPlatform];
+  const q = (document.getElementById('content-search')?.value || '').toLowerCase();
+  let rows = contentDB[currentPlatform].filter(r => { const matchStatus = contentFilter === 'all' || r.status === contentFilter; const matchSearch = !q || cfg.searchKey(r).toLowerCase().includes(q); return matchStatus && matchSearch; });
+  document.getElementById('content-filter').style.display = currentPlatform === 'ga4' ? 'none' : 'flex';
+  document.getElementById('content-thead').innerHTML = '<tr>' + cfg.headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+  const isGA4 = currentPlatform === 'ga4';
+  document.getElementById('content-tbody').innerHTML = rows.map(r => { const cells = cfg.row(r).map(v => `<td>${v}</td>`).join(''); const actionCell = isGA4 ? '' : `<td><button class="btn-sm" onclick="editContent('${currentPlatform}',${r.id})">編集</button> <button class="btn-sm" onclick="deleteContent('${currentPlatform}',${r.id})" style="color:var(--danger)">削除</button></td>`; return `<tr>${cells}${actionCell}</tr>`; }).join('') || `<tr><td colspan="${cfg.headers.length}" class="empty-state">データがありません</td></tr>`;
+}
+function initContent() { renderContentTable(); }
+function openContentModal(pl, id) {
+  pl = pl || currentPlatform;
+  const cfg = platformConfig[pl];
+  const existing = id ? contentDB[pl].find(r => r.id === id) : null;
+  const title = existing ? `${cfg.icon} ${cfg.label} 編集` : `${cfg.icon} ${cfg.label} 新規追加`;
+  let body = '';
+  cfg.formFields.forEach(f => {
+    const [key, label, type] = f.split(':');
+    const val = existing ? (existing[key] || '') : '';
+    if (type === 'status') { body += `<div class="form-group"><label>${label}</label><select id="cf-${key}"><option value="下書き" ${val==='下書き'?'selected':''}>下書き</option><option value="予約済" ${val==='予約済'?'selected':''}>予約済</option><option value="公開済" ${val==='公開済'?'selected':''}>公開済</option></select></div>`; }
+    else if (type === 'textarea') { body += `<div class="form-group"><label>${label}</label><textarea id="cf-${key}" rows="2">${val}</textarea></div>`; }
+    else { body += `<div class="form-group"><label>${label}</label><input type="${type}" id="cf-${key}" value="${val}" placeholder="${label}"></div>`; }
+  });
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = body + `<input type="hidden" id="cf-id" value="${id||''}"><input type="hidden" id="cf-pl" value="${pl}">`;
+  document.getElementById('modal-overlay').classList.add('show');
+  document.querySelector('.btn-submit').onclick = saveContent;
+}
+function editContent(pl, id) { openContentModal(pl, id); }
+async function deleteContent(pl, id) {
+  if (!confirm('削除しますか？')) return;
+  const { error } = await sb.from('content_' + pl).delete().eq('id', id);
+  if (!error) { contentDB[pl] = contentDB[pl].filter(r => r.id !== id); renderContentTable(); showToast('🗑️ 削除しました'); }
+  else { showToast('❌ 削除に失敗しました'); console.error(error); }
+}
+async function saveContent() {
+  const pl = document.getElementById('cf-pl').value;
+  const id = document.getElementById('cf-id').value;
+  const cfg = platformConfig[pl];
+  const today = new Date().toISOString().slice(0,10);
+  const obj = { updated: today };
+  cfg.formFields.forEach(f => { const [key,,type] = f.split(':'); const el = document.getElementById(`cf-${key}`); obj[key] = el ? el.value : ''; });
+  try {
+    if (id) {
+      const { data, error } = await sb.from('content_' + pl).update(obj).eq('id', Number(id)).select();
+      if (!error && data) { const idx = contentDB[pl].findIndex(r => r.id === Number(id)); if (idx !== -1) contentDB[pl][idx] = { ...contentDB[pl][idx], ...data[0] }; }
+      else if (error) { console.error(error); }
+    } else {
+      const { data, error } = await sb.from('content_' + pl).insert(obj).select();
+      if (!error && data) { contentDB[pl].unshift(data[0]); }
+      else if (error) { console.error(error); }
+    }
+    closeModal(); renderContentTable(); showToast('✅ 保存しました');
+  } catch(e) { console.error(e); closeModal(); showToast('✅ 保存しました'); }
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1f2937;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+  t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2800);
+}
+</script>
+</body>
+</html>
