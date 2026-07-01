@@ -406,7 +406,7 @@
               <td><span class="badge badge-active">管理者</span></td>
               <td><span class="badge badge-active">有効</span></td>
               <td>2026/07/02</td>
-              <td><button class="btn-sm">編集</button></td>
+              <td><button class="btn-sm" onclick="editUser('oguchi@ace-official.co.jp','小口 泰喜','admin')">編集</button></td>
             </tr>
             <tr>
               <td><div style="display:flex;align-items:center;gap:8px"><div class="user-avatar" style="width:28px;height:28px;font-size:11px;background:#16a34a">福</div>福岡 瑞希</div></td>
@@ -414,7 +414,7 @@
               <td><span class="badge badge-active">管理者</span></td>
               <td><span class="badge badge-active">有効</span></td>
               <td>-</td>
-              <td><button class="btn-sm">編集</button></td>
+              <td><button class="btn-sm" onclick="editUser('fukuoka@ace-official.co.jp','福岡 瑞希','admin')">編集</button></td>
             </tr>
             <tr>
               <td><div style="display:flex;align-items:center;gap:8px"><div class="user-avatar" style="width:28px;height:28px;font-size:11px;background:#7c3aed">戸</div>戸田 有咲</div></td>
@@ -422,7 +422,7 @@
               <td><span class="badge badge-responding">スタッフ</span></td>
               <td><span class="badge badge-active">有効</span></td>
               <td>-</td>
-              <td><button class="btn-sm">編集</button></td>
+              <td><button class="btn-sm" onclick="editUser('toda@ace-official.co.jp','戸田 有咲','user')">編集</button></td>
             </tr>
           </tbody>
       </table></div>
@@ -432,10 +432,10 @@
     <div class="page" id="page-settings">
       <div style="max-width:600px">
         <div class="card" style="margin-bottom:16px"><div class="card-header"><h3>🏢 自社情報</h3></div><div class="card-body" style="padding:20px">
-          <div class="form-group"><label>会社名</label><input type="text" value="ACE株式会社" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
-          <div class="form-group"><label>メールアドレス</label><input type="text" value="info@ace-official.co.jp" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
-          <div class="form-group"><label>電話番号</label><input type="text" value="03-XXXX-XXXX" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
-          <button class="btn-primary" style="width:auto;padding:9px 24px">保存</button>
+          <div class="form-group"><label>会社名</label><input type="text" value="合同会社ACE" id="setting-company" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+          <div class="form-group"><label>メールアドレス</label><input type="text" id="setting-email" value="info@ace-official.co.jp" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+          <div class="form-group"><label>電話番号</label><input type="text" id="setting-tel" value="03-XXXX-XXXX" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+          <button class="btn-primary" style="width:auto;padding:9px 24px" onclick="saveCompanyInfo()">保存</button>
         </div></div>
         <div class="card"><div class="card-header"><h3>🔔 通知設定</h3></div><div class="card-body" style="padding:20px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><div style="font-size:13px;font-weight:600">契約満了アラート（60日前）</div><div style="font-size:12px;color:var(--gray-400)">契約満了60日前にメール通知</div></div><input type="checkbox" checked style="width:18px;height:18px;cursor:pointer"></div>
@@ -800,10 +800,25 @@ async function submitModal() {
       const { data, error } = await sb.from('contracts').insert({ tenant: g('mf-tenant'), property: g('mf-property'), start_date: g('mf-start_date'), end_date: g('mf-end_date'), rent: parseInt(g('mf-rent'))||0, deposit: parseInt(g('mf-deposit'))||0, key_money: parseInt(g('mf-key_money'))||0, status: 'active' }).select();
       if (!error && data) { contracts.push({ ...data[0], start: data[0].start_date, end: data[0].end_date }); renderContracts(); }
     }
+    } else if (_modalType === 'user-edit') {
+      const name = document.getElementById('ue-name')?.value;
+      const role = document.getElementById('ue-role')?.value;
+      const pw = document.getElementById('ue-pw')?.value;
+      const body = { email: _editUserEmail };
+      if (name) body.name = name;
+      if (role) body.role = role;
+      if (pw) body.password = pw;
+      const res = await fetch('/api/update-user', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const result = await res.json();
+      closeModal();
+      showToast(result.ok ? '✅ ユーザーを更新しました' : '❌ 更新失敗: ' + (result.error||''));
+      return;
+    }
     closeModal(); showToast('✅ 登録しました');
   } catch(e) { console.error(e); closeModal(); showToast('✅ 登録しました'); }
 }
 document.getElementById('modal-overlay').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+loadCompanyInfo();
 
 // ==================== CONTENT MANAGEMENT ====================
 let currentPlatform = 'note';
@@ -907,6 +922,38 @@ function showToast(msg) {
   const t = document.createElement('div');
   t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1f2937;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3)';
   t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2800);
+}
+
+// ==================== COMPANY INFO SAVE ====================
+function saveCompanyInfo() {
+  const company = document.getElementById('setting-company')?.value || '';
+  const email = document.getElementById('setting-email')?.value || '';
+  const tel = document.getElementById('setting-tel')?.value || '';
+  localStorage.setItem('ace_company', JSON.stringify({ company, email, tel }));
+  showToast('✅ 自社情報を保存しました');
+}
+function loadCompanyInfo() {
+  try {
+    const d = JSON.parse(localStorage.getItem('ace_company') || '{}');
+    if (d.company && document.getElementById('setting-company')) document.getElementById('setting-company').value = d.company;
+    if (d.email && document.getElementById('setting-email')) document.getElementById('setting-email').value = d.email;
+    if (d.tel && document.getElementById('setting-tel')) document.getElementById('setting-tel').value = d.tel;
+  } catch(e) {}
+}
+
+// ==================== USER EDIT ====================
+let _editUserEmail = '';
+function editUser(email, name, role) {
+  _editUserEmail = email;
+  _modalType = 'user-edit';
+  document.getElementById('modal-title').textContent = 'スタッフ編集';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><label>氏名</label><input type="text" id="ue-name" value="${name}" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px"></div>
+    <div class="form-group"><label>メールアドレス</label><input type="email" id="ue-email" value="${email}" disabled style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#f5f5f5"></div>
+    <div class="form-group"><label>権限</label><select id="ue-role" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px"><option value="user" ${role==='user'?'selected':''}>スタッフ</option><option value="admin" ${role==='admin'?'selected':''}>管理者</option></select></div>
+    <div class="form-group"><label>新しいパスワード（変更する場合のみ）</label><input type="password" id="ue-pw" placeholder="入力しない場合は変更なし" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px"></div>
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
 }
 </script>
 </body>
