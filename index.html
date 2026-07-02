@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>不動産賃貸 案件管理システム</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -1643,7 +1646,6 @@ function setCardImage(dataUrl) {
   const img = document.getElementById('naiken-card-preview');
   img.src = dataUrl;
   img.style.display = 'block';
-  // 選択中のサムネイルをハイライト
   document.querySelectorAll('.naiken-saved-thumb').forEach(el => {
     el.style.borderColor = el.src === dataUrl ? 'var(--primary)' : 'var(--gray-200)';
   });
@@ -1692,34 +1694,34 @@ async function generateNaikenPDF() {
 
   const { jsPDF } = window.jspdf;
 
-  // A4サイズのCanvasを作成（3.78px/mm × 2倍品質）
-  const PX_PER_MM = 3.78 * 2;
-  const W_MM = 210, H_MM = 297;
+  // A4サイズのCanvas（px単位で描画 - mm単位ではなくpxで明示的に指定）
+  const MM_PX = 3.78;
+  const SCALE = 2;
+  const PX = mm => Math.round(mm * MM_PX * SCALE);
+  const PT_PX = pt => Math.round(pt * 1.3333 * SCALE);
+
   const cv = document.createElement('canvas');
-  cv.width  = Math.round(W_MM * PX_PER_MM);
-  cv.height = Math.round(H_MM * PX_PER_MM);
+  cv.width  = PX(210);
+  cv.height = PX(297);
   const ctx = cv.getContext('2d');
-  ctx.scale(PX_PER_MM, PX_PER_MM); // mm単位で描画できるようにスケール
 
-  // 白背景
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, W_MM, H_MM);
+  ctx.fillRect(0, 0, cv.width, cv.height);
 
-  // フォントセッター（ptサイズ → mm変換、ブラウザ内蔵日本語フォント使用）
   const JP = `'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo','Yu Gothic',sans-serif`;
   const sf = (pt, bold = false) => {
-    ctx.font = `${bold ? 'bold ' : ''}${(pt * 0.3528).toFixed(2)}mm ${JP}`;
+    ctx.font = `${bold ? 'bold ' : ''}${PT_PX(pt)}px ${JP}`;
   };
 
   ctx.fillStyle = '#000000';
-  const ml = 14, mr = 14;
-  let y = 20;
+  const ml = PX(14), mr_x = cv.width - PX(14);
+  let y = PX(20);
 
   // タイトル
   sf(20, true);
   ctx.textAlign = 'center';
-  ctx.fillText('内見依頼書', W_MM / 2, y);
-  y += 10;
+  ctx.fillText('内見依頼書', cv.width / 2, y);
+  y += PX(10);
 
   // 宛先（左）
   if (addressee) {
@@ -1737,17 +1739,17 @@ async function generateNaikenPDF() {
   ];
   sf(8, false);
   ctx.textAlign = 'right';
-  rightLines.forEach((line, i) => ctx.fillText(line, W_MM - mr, y + i * 4.5));
-  y += rightLines.length * 4.5 + 6;
+  rightLines.forEach((line, i) => ctx.fillText(line, mr_x, y + i * PX(4.5)));
+  y += PX(rightLines.length * 4.5 + 6);
 
   // 区切り線
   ctx.strokeStyle = '#bbbbbb';
-  ctx.lineWidth = 0.3;
-  ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(W_MM - mr, y); ctx.stroke();
-  y += 8;
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(mr_x, y); ctx.stroke();
+  y += PX(8);
 
   // テーブル
-  const colW1 = 40, colW2 = W_MM - ml - mr - colW1, rowH = 10;
+  const colW1 = PX(40), colW2 = PX(210 - 14 - 14 - 40), rowH = PX(10);
   const rows = [
     ['物件名', property],
     ['号室',   room],
@@ -1759,39 +1761,39 @@ async function generateNaikenPDF() {
     ctx.fillStyle = '#eeeeee';
     ctx.fillRect(ml, y, colW1, rowH);
     ctx.strokeStyle = '#bbbbbb';
-    ctx.lineWidth = 0.3;
+    ctx.lineWidth = 1;
     ctx.strokeRect(ml, y, colW1, rowH);
     ctx.strokeRect(ml + colW1, y, colW2, rowH);
     ctx.fillStyle = '#000000';
     sf(10, true);
-    ctx.fillText(label, ml + 2, y + 7);
+    ctx.fillText(label, ml + PX(2), y + PX(7));
     sf(10, false);
-    ctx.fillText(value || '　', ml + colW1 + 3, y + 7);
+    ctx.fillText(value || '', ml + colW1 + PX(3), y + PX(7));
     y += rowH;
   });
-  y += 12;
+  y += PX(12);
 
   // 名刺画像
   if (cardImg && cardImg.src && cardImg.style.display !== 'none') {
     sf(9, false);
     ctx.textAlign = 'left';
     ctx.fillText('【担当者名刺】', ml, y);
-    y += 5;
+    y += PX(5);
     try {
       const im = new Image();
       await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = cardImg.src; });
-      const maxW = 85, maxH = 55;
+      const maxW = PX(85), maxH = PX(55);
       let iw = maxW, ih = (im.naturalHeight / im.naturalWidth) * maxW;
       if (ih > maxH) { ih = maxH; iw = (im.naturalWidth / im.naturalHeight) * maxH; }
       ctx.drawImage(im, ml, y, iw, ih);
     } catch(e) {}
   }
 
-  // PDF出力
+  // PDF出力（Canvas → JPEG → jsPDF）
   const imgData = cv.toDataURL('image/jpeg', 0.95);
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
   doc.addImage(imgData, 'JPEG', 0, 0, 210, 297);
-  const fname = `内見依頼書_${property}${room}.pdf`.replace(/[\s　]/g, '_');
+  const fname = ('内見依頼書_' + property + room + '.pdf').replace(/[\s　]/g, '_');
   doc.save(fname);
 }
 
