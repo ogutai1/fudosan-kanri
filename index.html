@@ -304,7 +304,7 @@
   <!-- Sidebar -->
   <nav class="sidebar">
     <div class="sidebar-logo">
-      <h2>🏢 不動産賃貸<br>案件管理</h2>
+      <h2 style="white-space:nowrap;font-size:13px;line-height:1.3">🏢 不動産 案件管理</h2>
       <span>v1.0</span>
     </div>
     <div class="sidebar-nav">
@@ -376,7 +376,7 @@
     <div class="topbar">
       <h1 id="page-title">ダッシュボード</h1>
       <div class="topbar-actions">
-        <span style="font-size:12px;color:var(--gray-500)">2026年6月22日（月）</span>
+        <span id="topbar-date" style="font-size:12px;color:var(--gray-500)"></span>
       </div>
     </div>
 
@@ -734,7 +734,7 @@
               <td><span class="badge badge-active">管理者</span></td>
               <td><span class="badge badge-active">有効</span></td>
               <td>2026/07/02</td>
-              <td><button class="btn-sm">編集</button></td>
+              <td><button class="btn-sm" onclick="openUserEdit('小口 泰喜','oguchi@ace-official.co.jp','管理者')">編集</button></td>
             </tr>
             <tr>
               <td><div style="display:flex;align-items:center;gap:8px"><div class="user-avatar" style="width:28px;height:28px;font-size:11px;background:#16a34a">福</div>福岡 瑞希</div></td>
@@ -742,7 +742,7 @@
               <td><span class="badge badge-active">管理者</span></td>
               <td><span class="badge badge-active">有効</span></td>
               <td>-</td>
-              <td><button class="btn-sm">編集</button></td>
+              <td><button class="btn-sm" onclick="openUserEdit('福岡 瑞希','fukuoka@ace-official.co.jp','管理者')">編集</button></td>
             </tr>
             <tr>
               <td><div style="display:flex;align-items:center;gap:8px"><div class="user-avatar" style="width:28px;height:28px;font-size:11px;background:#7c3aed">戸</div>戸田 有咲</div></td>
@@ -750,7 +750,7 @@
               <td><span class="badge badge-responding">スタッフ</span></td>
               <td><span class="badge badge-active">有効</span></td>
               <td>-</td>
-              <td><button class="btn-sm">編集</button></td>
+              <td><button class="btn-sm" onclick="openUserEdit('戸田 有咲','toda@ace-official.co.jp','スタッフ')">編集</button></td>
             </tr>
           </tbody>
         </table>
@@ -805,17 +805,25 @@
         <div class="doc-card">
           <h2>📋 内見依頼書 入力フォーム</h2>
           <div class="doc-form-group">
-            <label>宛先（仲介業者名）</label>
-            <input type="text" id="naiken-addressee" placeholder="株式会社アーバンリンク">
+            <label>宛先</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="text" id="naiken-addressee" placeholder="" style="flex:1">
+              <select id="naiken-honorific" onchange="toggleNaikenHonorific(this)" style="padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none;min-width:90px">
+                <option value="御中">御中</option>
+                <option value="様">様</option>
+                <option value="other">その他</option>
+              </select>
+              <input type="text" id="naiken-honorific-other" placeholder="敬称" style="display:none;width:90px;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+            </div>
           </div>
           <div class="doc-form-row">
             <div class="doc-form-group">
               <label>物件名</label>
-              <input type="text" id="naiken-property" placeholder="ノーブルパレス芝中田">
+              <input type="text" id="naiken-property" placeholder="">
             </div>
             <div class="doc-form-group">
               <label>号室</label>
-              <input type="text" id="naiken-room" placeholder="102">
+              <input type="text" id="naiken-room" placeholder="">
             </div>
           </div>
           <div class="doc-form-row">
@@ -825,7 +833,21 @@
             </div>
             <div class="doc-form-group">
               <label>時間</label>
-              <input type="text" id="naiken-time" placeholder="12時00分〜13時00分">
+              <div style="display:flex;gap:6px;align-items:center">
+                <select id="naiken-time" style="flex:1;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none" onchange="toggleNaikenTime(this)">
+                  <option value="9:00〜10:00">9:00〜10:00</option>
+                  <option value="10:00〜11:00">10:00〜11:00</option>
+                  <option value="11:00〜12:00">11:00〜12:00</option>
+                  <option value="12:00〜13:00">12:00〜13:00</option>
+                  <option value="13:00〜14:00">13:00〜14:00</option>
+                  <option value="14:00〜15:00">14:00〜15:00</option>
+                  <option value="15:00〜16:00">15:00〜16:00</option>
+                  <option value="16:00〜17:00">16:00〜17:00</option>
+                  <option value="17:00〜18:00">17:00〜18:00</option>
+                  <option value="other">その他</option>
+                </select>
+                <input type="text" id="naiken-time-other" placeholder="時間を入力" style="display:none;flex:1;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+              </div>
             </div>
           </div>
           <div class="doc-form-group">
@@ -867,8 +889,16 @@
           <h2>🧾 請求書 入力フォーム</h2>
           <div class="doc-form-row">
             <div class="doc-form-group">
-              <label>宛先（氏名・会社名）</label>
-              <input type="text" id="inv-addressee" placeholder="重森 翔太">
+              <label>宛先</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="text" id="inv-addressee" placeholder="" style="flex:1">
+                <select id="inv-honorific" onchange="toggleInvHonorific(this)" style="padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none;min-width:90px">
+                  <option value="御中">御中</option>
+                  <option value="様">様</option>
+                  <option value="other">その他</option>
+                </select>
+                <input type="text" id="inv-honorific-other" placeholder="敬称" style="display:none;width:90px;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+              </div>
             </div>
             <div class="doc-form-group">
               <label>発行日</label>
@@ -878,16 +908,19 @@
           <div class="doc-form-row">
             <div class="doc-form-group">
               <label>件名（物件名）</label>
-              <input type="text" id="inv-property" placeholder="APPLE HOUSE">
+              <input type="text" id="inv-property" placeholder="">
             </div>
             <div class="doc-form-group">
               <label>種別</label>
-              <select id="inv-type">
-                <option>仲介手数料</option>
-                <option>広告料</option>
-                <option>管理費</option>
-                <option>その他</option>
-              </select>
+              <div style="display:flex;gap:6px;align-items:center">
+                <select id="inv-type" onchange="toggleInvType(this)" style="flex:1;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+                  <option value="仲介手数料">仲介手数料</option>
+                  <option value="広告費">広告費</option>
+                  <option value="業務委託費">業務委託費</option>
+                  <option value="other">その他</option>
+                </select>
+                <input type="text" id="inv-type-other" placeholder="種別を入力" style="display:none;flex:1;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+              </div>
             </div>
           </div>
           <div class="doc-form-row">
@@ -897,7 +930,7 @@
             </div>
             <div class="doc-form-group">
               <label>税抜金額（円）</label>
-              <input type="number" id="inv-amount" placeholder="47000" min="0">
+              <input type="number" id="inv-amount" placeholder="" min="0">
             </div>
           </div>
           <div class="doc-form-row">
@@ -909,8 +942,11 @@
               </select>
             </div>
             <div class="doc-form-group">
-              <label>担当者名</label>
-              <input type="text" id="inv-staff" placeholder="小口">
+              <label>担当者</label>
+              <select id="inv-staff" style="padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none;width:100%">
+                <option value="小口泰喜">小口泰喜</option>
+                <option value="戸田有咲">戸田有咲</option>
+              </select>
             </div>
           </div>
           <div class="doc-actions">
@@ -1007,6 +1043,48 @@
   </div>
 </div>
 
+<!-- ユーザー編集モーダル -->
+<div class="modal-overlay" id="user-edit-overlay" style="display:none" onclick="closeUserEdit()">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:440px">
+    <h2>👤 ユーザー編集</h2>
+    <div style="padding:16px 0">
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:6px">氏名</label>
+        <input type="text" id="ue-name" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:6px">メールアドレス</label>
+        <input type="email" id="ue-email" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:6px">権限</label>
+        <select id="ue-role" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+          <option value="管理者">管理者</option>
+          <option value="スタッフ">スタッフ</option>
+        </select>
+      </div>
+      <div style="border-top:1px solid var(--gray-200);padding-top:14px;margin-top:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:10px">🔑 パスワード管理（管理者のみ）</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:6px">現在のパスワード</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="password" id="ue-pw-display" value="password1234" readonly style="flex:1;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#f9fafb;outline:none">
+            <button onclick="togglePwVisibility()" style="padding:9px 14px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;cursor:pointer;background:#fff" title="表示/非表示">👁</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:6px">新しいパスワード（変更する場合）</label>
+          <input type="password" id="ue-pw-new" placeholder="新パスワードを入力" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeUserEdit()">キャンセル</button>
+      <button class="btn-submit" onclick="saveUserEdit()">保存する</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ==================== SUPABASE ====================
 const SUPABASE_URL = 'YOUR_SUPABASE_URL';
@@ -1040,6 +1118,54 @@ let calendarDate = new Date(2026, 5, 1); // June 2026
 let selectedInquiryId = null;
 let currentFinanceMonth = '2026-06';
 
+// ==================== DATE UTILS ====================
+function formatJpDate(d) {
+  const days = ['日','月','火','水','木','金','土'];
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
+}
+function updateTopbarDate() {
+  const el = document.getElementById('topbar-date');
+  if (el) el.textContent = formatJpDate(new Date());
+}
+setInterval(updateTopbarDate, 60000);
+
+// ==================== UI HELPERS ====================
+function toggleNaikenHonorific(sel) {
+  document.getElementById('naiken-honorific-other').style.display = sel.value === 'other' ? 'block' : 'none';
+}
+function toggleNaikenTime(sel) {
+  document.getElementById('naiken-time-other').style.display = sel.value === 'other' ? 'block' : 'none';
+}
+function toggleInvHonorific(sel) {
+  document.getElementById('inv-honorific-other').style.display = sel.value === 'other' ? 'block' : 'none';
+}
+function toggleInvType(sel) {
+  document.getElementById('inv-type-other').style.display = sel.value === 'other' ? 'block' : 'none';
+}
+
+// ==================== USER EDIT ====================
+function openUserEdit(name, email, role) {
+  document.getElementById('ue-name').value = name;
+  document.getElementById('ue-email').value = email;
+  document.getElementById('ue-role').value = role;
+  document.getElementById('ue-pw-new').value = '';
+  document.getElementById('ue-pw-display').type = 'password';
+  document.getElementById('user-edit-overlay').style.display = 'flex';
+}
+function closeUserEdit() {
+  document.getElementById('user-edit-overlay').style.display = 'none';
+}
+function saveUserEdit() {
+  const name = document.getElementById('ue-name').value;
+  const newPw = document.getElementById('ue-pw-new').value;
+  alert(`保存しました。\n氏名：${name}${newPw ? '\nパスワードを更新しました。' : ''}`);
+  closeUserEdit();
+}
+function togglePwVisibility() {
+  const inp = document.getElementById('ue-pw-display');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
 // ==================== LOGIN ====================
 function showApp(user) {
   document.getElementById('login-screen').style.display = 'none';
@@ -1047,6 +1173,7 @@ function showApp(user) {
   const name = user?.user_metadata?.name || user?.email?.split('@')[0] || 'ユーザー';
   document.querySelector('.user-name').textContent = name;
   document.querySelector('.user-avatar').textContent = name.charAt(0).toUpperCase();
+  updateTopbarDate();
 }
 async function doLogin() {
   const email = document.getElementById('login-email').value;
@@ -1096,6 +1223,7 @@ function navigate(page) {
   }
   document.getElementById('page-title').textContent = titles[page] || page;
   if (page === 'report') renderReportChart();
+  updateTopbarDate();
 }
 
 // ==================== INIT ====================
@@ -1699,10 +1827,18 @@ async function _renderToPdf(el, fname) {
 // ===== 内見依頼書PDF =====
 async function generateNaikenPDF() {
   const addressee = document.getElementById('naiken-addressee').value || '';
+  const honorificSel = document.getElementById('naiken-honorific').value;
+  const honorific = honorificSel === 'other'
+    ? (document.getElementById('naiken-honorific-other').value || '')
+    : honorificSel;
+  const addresseeFull = addressee ? `${addressee} ${honorific}` : '';
   const property  = document.getElementById('naiken-property').value  || '';
   const room      = document.getElementById('naiken-room').value      || '';
   const dateVal   = document.getElementById('naiken-date').value      || '';
-  const timeVal   = document.getElementById('naiken-time').value      || '';
+  const timeSel   = document.getElementById('naiken-time').value;
+  const timeVal   = timeSel === 'other'
+    ? (document.getElementById('naiken-time-other').value || '')
+    : timeSel;
   const cardImg   = document.getElementById('naiken-card-preview');
 
   const cardHtml = (cardImg && cardImg.src && cardImg.style.display !== 'none')
@@ -1716,7 +1852,7 @@ async function generateNaikenPDF() {
   wrap.innerHTML = `<div id="_pdf_n" style="width:794px;padding:53px;font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo','Yu Gothic',sans-serif;font-size:10pt;line-height:1.5;color:#000;background:#fff;box-sizing:border-box">
     <h1 style="text-align:center;font-size:20pt;font-weight:bold;margin:0 0 8mm">内見依頼書</h1>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm">
-      <div style="font-size:11pt">${addressee ? addressee + ' 御中' : ''}</div>
+      <div style="font-size:11pt">${addresseeFull}</div>
       <div style="text-align:right;font-size:8pt;line-height:1.7">
         <div>株式会社クラウドコンサルティング</div><div>〒151-0053</div>
         <div>東京都渋谷区代々木2-16-15 新宿オークビル1階</div>
@@ -1740,9 +1876,17 @@ async function generateNaikenPDF() {
 // ===== 請求書PDF =====
 async function generateInvoicePDF() {
   const addressee = document.getElementById('inv-addressee').value  || '';
+  const honorificSel = document.getElementById('inv-honorific').value;
+  const honorific = honorificSel === 'other'
+    ? (document.getElementById('inv-honorific-other').value || '')
+    : honorificSel;
+  const addresseeFull = addressee ? `${addressee} ${honorific}` : '';
   const issueDate = document.getElementById('inv-date').value       || '';
   const property  = document.getElementById('inv-property').value   || '';
-  const type      = document.getElementById('inv-type').value       || '仲介手数料';
+  const typeSel   = document.getElementById('inv-type').value;
+  const type      = typeSel === 'other'
+    ? (document.getElementById('inv-type-other').value || 'その他')
+    : typeSel;
   const tradeDate = document.getElementById('inv-trade-date').value || '';
   const amtEx     = parseInt(document.getElementById('inv-amount').value) || 0;
   const taxRate   = parseInt(document.getElementById('inv-tax-rate').value) || 10;
@@ -1759,7 +1903,7 @@ async function generateInvoicePDF() {
   wrap.innerHTML = `<div id="_pdf_i" style="width:794px;padding:53px;font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo','Yu Gothic',sans-serif;font-size:10pt;line-height:1.5;color:#000;background:#fff;box-sizing:border-box">
     <div style="text-align:right;font-size:9pt;margin-bottom:4mm">発行日　${issueFmt}</div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm">
-      <div style="font-size:14pt;font-weight:bold">${addressee ? addressee+' 様' : ''}</div>
+      <div style="font-size:14pt;font-weight:bold">${addresseeFull}</div>
       <div style="text-align:right;font-size:9pt;line-height:1.7">
         <div>〒151-0053</div>
         <div>東京都渋谷区代々木2丁目16番15号</div>
@@ -2045,16 +2189,4 @@ async function saveContent() {
     closeModal();
     renderContentTable();
     showToast('✅ 保存しました');
-  } catch(e) { console.error(e); closeModal(); showToast('✅ 保存しました'); }
-}
-
-function showToast(msg) {
-  const t = document.createElement('div');
-  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1f2937;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3)';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2800);
-}
-</script>
-</body>
-</html>
+  } catch(e) { c
