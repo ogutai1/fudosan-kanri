@@ -1693,21 +1693,24 @@ async function markPaid(id) {
 
 // ==================== REPORT ====================
 function renderReport() {
-  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  const income =  [4320000, 4320000, 4320000, 4400000, 4400000, 4315000, 4400000, 4400000, 4400000, 4400000, 4400000, 4445000];
-  const expense = [320000, 450000, 280000, 890000, 310000, 280000, 400000, 650000, 290000, 320000, 780000, 350000];
+  const months = ['1月','2月','3月','4月','5月','6月'];
   const tbody = document.getElementById('report-tbody');
-  tbody.innerHTML = months.slice(0,6).map((m,i) => {
-    const net = income[i] - expense[i];
-    const rate = Math.round(income[i] / (income[i] + expense[i]) * 1000) / 10;
+  // payments から月別に集計
+  const monthKeys = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
+  tbody.innerHTML = months.map((m, i) => {
+    const mk = monthKeys[i];
+    const rows = payments.filter(p => p.month === mk);
+    const income = rows.filter(p => p.type === 'income').reduce((s, p) => s + (p.amount || 0), 0);
+    const expense = rows.filter(p => p.type === 'expense').reduce((s, p) => s + (p.amount || 0), 0);
+    const net = income - expense;
     return `<tr>
       <td>2026年 ${m}</td>
-      <td style="color:var(--success);font-weight:600">¥${income[i].toLocaleString()}</td>
-      <td style="color:var(--danger)">¥${expense[i].toLocaleString()}</td>
+      <td style="color:var(--success);font-weight:600">¥${income.toLocaleString()}</td>
+      <td style="color:var(--danger)">¥${expense.toLocaleString()}</td>
       <td style="font-weight:700">¥${net.toLocaleString()}</td>
-      <td>${i < 5 ? '100%' : '94%'}</td>
+      <td>—</td>
     </tr>`;
-  }).join('');
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:24px">データなし</td></tr>';
 }
 let reportChartInstance = null;
 function renderReportChart() {
@@ -1734,8 +1737,9 @@ function renderDashboardChart() {
   const canvas = document.getElementById('dashboard-chart');
   if (!canvas) return;
   const months = ['1月','2月','3月','4月','5月','6月'];
-  const income = [4320000, 4320000, 4320000, 4400000, 4400000, 4315000];
-  const expense = [320000, 450000, 280000, 890000, 310000, 280000];
+  const monthKeys = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
+  const income = monthKeys.map(mk => payments.filter(p => p.month === mk && p.type === 'income').reduce((s,p) => s+(p.amount||0), 0));
+  const expense = monthKeys.map(mk => payments.filter(p => p.month === mk && p.type === 'expense').reduce((s,p) => s+(p.amount||0), 0));
   if (dashChartInstance) dashChartInstance.destroy();
   dashChartInstance = new Chart(canvas, {
     type: 'line',
@@ -2041,6 +2045,23 @@ async function generateNaikenPDF() {
   document.body.appendChild(wrap);
   try { await _renderToPdf(wrap.querySelector('#_pdf_n'), ('内見依頼書_' + property + room + '.pdf').replace(/[\s　]/g,'_')); }
   finally { document.body.removeChild(wrap); }
+  // ─── 内見カレンダーに自動登録 ───
+  if (dateVal) {
+    const calDate = dateVal.replace(/-/g, '/'); // YYYY/MM/DD
+    const exists = viewings.find(v => v.date === calDate && v.customer === addressee && v.property === property);
+    if (!exists) {
+      viewings.push({
+        id: Date.now(),
+        date: calDate,
+        time: timeVal || '',
+        customer: addressee || '(名前未入力)',
+        property: property + (room ? ' ' + room + '号室' : ''),
+        assignee: document.getElementById('cfg-company')?.value || '担当者',
+        status: 'scheduled'
+      });
+      showToast('📅 内見カレンダーに登録しました');
+    }
+  }
 }
 
 // ===== 請求書PDF =====
