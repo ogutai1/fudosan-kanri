@@ -1089,40 +1089,33 @@
 // ==================== SUPABASE ====================
 const SUPABASE_URL = 'YOUR_SUPABASE_URL';
 const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-// デモモード時はcreateClientがURLバリデーションエラーを投げるのでtry/catchで対処
+
+// デモ用チェーンスタブ（メソッドチェーン + thenable対応）
+const _demoChain = (val) => {
+  const p = Promise.resolve(val || { data: [], error: null });
+  const c = {};
+  ['select','order','eq','neq','gte','lte','update','insert','delete','upsert','single','limit','range'].forEach(m => { c[m] = () => _demoChain(val); });
+  c.then = (r, j) => p.then(r, j);
+  c.catch = (fn) => p.catch(fn);
+  return c;
+};
+const _demoSb = {
+  auth: {
+    signInWithPassword: async () => ({ data: null, error: null }),
+    signOut: async () => {},
+    getSession: async () => ({ data: { session: null } })
+  },
+  from: () => _demoChain({ data: [], error: null })
+};
+
 let sb;
 try {
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 } catch(e) {
-  // デモ用スタブ（実際のSupabase接続なし）- メソッドチェーン対応
-  function _demoChain(val) {
-    const p = Promise.resolve(val);
-    const chain = {
-      select: () => _demoChain(val),
-      order: () => _demoChain(val),
-      eq: () => _demoChain(val),
-      neq: () => _demoChain(val),
-      gte: () => _demoChain(val),
-      lte: () => _demoChain(val),
-      update: () => _demoChain(val),
-      insert: () => _demoChain(val),
-      delete: () => _demoChain(val),
-      upsert: () => _demoChain(val),
-      single: () => _demoChain(val),
-      then: (r, j) => p.then(r, j),
-      catch: (fn) => p.catch(fn),
-    };
-    return chain;
-  }
-  sb = {
-    auth: {
-      signInWithPassword: async () => ({ data: null, error: null }),
-      signOut: async () => {},
-      getSession: async () => ({ data: { session: null } })
-    },
-    from: () => _demoChain({ data: [], error: null })
-  };
+  sb = _demoSb;
 }
+// 追加: URLが無効な場合もデモモードにフォールバック
+if (!sb || SUPABASE_URL === 'YOUR_SUPABASE_URL') sb = _demoSb;
 
 // ==================== DATA ====================
 let properties = [];
