@@ -290,14 +290,14 @@
     </div>
     <div class="form-group">
       <label>メールアドレス</label>
-      <input type="email" id="login-email" value="oguchi@ace-official.co.jp" placeholder="メールアドレス">
+      <input type="email" id="login-email" placeholder="メールアドレス">
     </div>
     <div class="form-group">
       <label>パスワード</label>
       <input type="password" id="login-pass" placeholder="パスワード">
     </div>
     <button class="btn-primary" onclick="doLogin()">ログイン</button>
-    <p class="login-hint">デモ：任意のメール・パスワードでログイン可</p>
+    <p class="login-hint">社内スタッフのみアクセスできます</p>
   </div>
 </div>
 
@@ -1172,23 +1172,22 @@ function showApp(user) {
   updateTopbarDate();
 }
 async function doLogin() {
-  const email = document.getElementById('login-email').value;
+  const email = (document.getElementById('login-email').value || '').trim();
   const password = document.getElementById('login-pass').value;
   if (!email || !password) { alert('メールアドレスとパスワードを入力してください'); return; }
-  try {
-    if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || !window.supabase) {
-      showApp({ email }); await initApp(); return;
-    }
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) {
-      // Supabase接続失敗 → デモモードで続行
-      showApp({ email }); await initApp(); return;
-    }
-    showApp(data.user); await initApp();
-  } catch(e) {
-    // エラー時もデモモードで続行
-    showApp({ email }); await initApp();
+  // スタッフ認証
+  const STAFF = [
+    { email: 'fukuoka@ace-official.co.jp', password: 'Ace2025', name: '小口泰喜' },
+    { email: 'toda@ace-official.co.jp',    password: 'Ace2025', name: '戸田有咲' },
+  ];
+  const matched = STAFF.find(u => u.email === email && u.password === password);
+  if (!matched) {
+    alert('メールアドレスまたはパスワードが正しくありません');
+    document.getElementById('login-pass').value = '';
+    return;
   }
+  showApp({ email: matched.email, name: matched.name });
+  await initApp();
 }
 async function doLogout() {
   if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') await sb.auth.signOut();
