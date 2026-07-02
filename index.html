@@ -1144,16 +1144,7 @@ try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catc
 if (!sb || SUPABASE_URL === 'YOUR_SUPABASE_URL') sb = _demoSb;
 
 // ==================== DATA ====================
-let cases = [
-  { id:1, name:'加藤 美奈子', phone:'090-1234-5678', email:'', property:'コンフォリア浅草橋', room:'1211', prefecture:'東京都', teishaku:false, status:'new', staff:'小口泰喜', source:'SUUMO', date:'2026/07/01', notes:'3LDK希望。予算15万円。', docs:{} },
-  { id:2, name:'山本 健一', phone:'090-2345-6789', email:'', property:'パークサイド', room:'201', prefecture:'東京都', teishaku:false, status:'viewing', staff:'小口泰喜', source:'HOMES', date:'2026/06/28', notes:'内見7/2 14:00予約済', docs:{} },
-  { id:3, name:'高橋 健二', phone:'090-3456-7890', email:'', property:'グランドヒルズ', room:'305', prefecture:'神奈川県', teishaku:false, status:'viewed', staff:'戸田有咲', source:'直接', date:'2026/06/20', notes:'6/28内見済。フォロー中。', docs:{} },
-  { id:4, name:'田中 智子', phone:'090-4567-8901', email:'', property:'ノーブルパレス', room:'102', prefecture:'東京都', teishaku:true, status:'applied', staff:'小口泰喜', source:'SUUMO', date:'2026/06/15', notes:'定借物件。申込書受領済。', docs:{keiyaku:false,juyou:false,funsou:false,teishaku_doc:false,chukaisyotyu:false,kokokuhi:false} },
-  { id:5, name:'小野 真菜', phone:'090-5678-9012', email:'', property:'リリオコート', room:'305', prefecture:'東京都', teishaku:false, status:'reviewing', staff:'戸田有咲', source:'紹介', date:'2026/06/10', notes:'審査中。法人補証予定。', docs:{keiyaku:false,juyou:false,funsou:false,chukaisyotyu:false,kokokuhi:false} },
-  { id:6, name:'株式会社トラストハブ', phone:'03-1234-5678', email:'', property:'コンフォリア浅草橋', room:'1211', prefecture:'東京都', teishaku:false, status:'contracted', staff:'小口泰喜', source:'紹介', date:'2026/05/20', notes:'契約完了。書類Drive格納済。', docs:{keiyaku:true,juyou:true,funsou:true,chukaisyotyu:true,kokokuhi:true}, driveUrl:'https://drive.google.com/drive/folders/1aPoKh-JFCYImLeNBH47neSgRvE73PeON' },
-  { id:7, name:'小野 真菜（B）', phone:'090-9876-5432', email:'', property:'リリオコート', room:'305', prefecture:'東京都', teishaku:false, status:'contracted', staff:'戸田有咲', source:'HOMES', date:'2026/06/02', notes:'契約完了。', docs:{keiyaku:true,juyou:true,funsou:true,chukaisyotyu:true,kokokuhi:false} },
-  { id:8, name:'株式会社Ravex', phone:'03-9876-5432', email:'', property:'中尾貸倉庫', room:'3', prefecture:'東京都', teishaku:false, status:'contracted', staff:'小口泰喜', source:'紹介', date:'2026/05/31', notes:'契約完了。', docs:{keiyaku:true,juyou:true,funsou:true,chukaisyotyu:true,kokokuhi:true} },
-];
+let cases = [];
 let payments = [], viewings = [];
 let currentCase = null;
 let googleAccessToken = null;
@@ -1163,11 +1154,13 @@ const DRIVE_ROOT_FOLDER_ID = '1S2SPvqayU-uOt9G6M8R3pDRsS1KfhJr0';
 let currentPage = 'dashboard';
 let currentCaseFilter = 'all';
 let calendarDate = new Date(2026, 6, 1); // July 2026
-let nextCaseId = 9;
+let nextCaseId = 1;
 let currentFinanceMonth = '2026-06';
 
 // ==================== LOGIN ====================
+let currentUser = null;
 function showApp(user) {
+  currentUser = user;
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const name = user?.user_metadata?.name || user?.email?.split('@')[0] || 'ユーザー';
@@ -1177,7 +1170,7 @@ function showApp(user) {
 }
 // ==================== AUTH STAFF ====================
 const STAFF_ACCOUNTS = [
-  { email: 'oguchi@ace-official.co.jp',  password: 'Ace2025', name: '小口 泰喜' },
+  { email: 'oguchi@ace-official.co.jp',  password: 'Ace2025', name: '小口 泰喜', role: 'admin' },
   { email: 'fukuoka@ace-official.co.jp', password: 'Ace2025', name: '福岡 瑞希' },
   { email: 'toda@ace-official.co.jp',    password: 'Ace2025', name: '戸田 有咲' },
 ];
@@ -1192,7 +1185,7 @@ async function doLogin() {
     document.getElementById('login-pass').value = '';
     return;
   }
-  showApp({ email: matched.email, name: matched.name, role: matched.role || '担当者' });
+  showApp({ email: matched.email, name: matched.name, role: matched.role || 'staff' });
   await initApp();
 }
 async function doLogout() {
@@ -1370,9 +1363,10 @@ function renderCases(filter) {
       <td style="font-size:12px">${c.staff}</td>
       <td style="font-size:12px">${c.date}</td>
       <td style="font-size:12px;color:${docColor};font-weight:600">${dc.done}/${dc.total}件</td>
-      <td>
+      <td style="white-space:nowrap">
         <button class="btn-sm" onclick="openCaseDetail(${c.id})">詳細</button>
         ${c.status !== 'contracted' && c.status !== 'lost' ? `<button class="btn-sm" onclick="setCaseStatus(${c.id},'lost')" style="color:var(--gray-400)" title="失注">✕</button>` : ''}
+        ${currentUser && currentUser.role === 'admin' ? `<button class="btn-sm" onclick="deleteCase(${c.id})" style="color:#ef4444;margin-left:2px" title="削除">🗑</button>` : ''}
       </td>
     </tr>`;
   }).join('');
@@ -1409,6 +1403,15 @@ function setCaseFilter(btn, f) {
     btns.forEach(b => { if (b.getAttribute('onclick')?.includes(`'${f}'`)) b.classList.add('active'); });
   }
   renderCases(f);
+}
+
+function deleteCase(id) {
+  const c = cases.find(x => x.id === id);
+  if (!c) return;
+  if (!confirm(`「${c.name}」の案件を削除しますか？この操作は取り消せません。`)) return;
+  cases = cases.filter(x => x.id !== id);
+  renderCases(); updateBadges();
+  showToast('🗑 案件を削除しました');
 }
 
 function setCaseStatus(id, status) {
