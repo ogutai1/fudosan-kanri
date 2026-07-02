@@ -1171,22 +1171,24 @@ function showApp(user) {
   document.querySelector('.user-avatar').textContent = name.charAt(0).toUpperCase();
   updateTopbarDate();
 }
+// ==================== AUTH STAFF ====================
+const STAFF_ACCOUNTS = [
+  { email: 'oguchi@ace-official.co.jp',  password: 'Ace2025', name: '小口 泰喜' },
+  { email: 'fukuoka@ace-official.co.jp', password: 'Ace2025', name: '福岡 瑞希' },
+  { email: 'toda@ace-official.co.jp',    password: 'Ace2025', name: '戸田 有咲' },
+];
+
 async function doLogin() {
   const email = (document.getElementById('login-email').value || '').trim();
   const password = document.getElementById('login-pass').value;
   if (!email || !password) { alert('メールアドレスとパスワードを入力してください'); return; }
-  // スタッフ認証
-  const STAFF = [
-    { email: 'fukuoka@ace-official.co.jp', password: 'Ace2025', name: '小口泰喜' },
-    { email: 'toda@ace-official.co.jp',    password: 'Ace2025', name: '戸田有咲' },
-  ];
-  const matched = STAFF.find(u => u.email === email && u.password === password);
+  const matched = STAFF_ACCOUNTS.find(u => u.email === email && u.password === password);
   if (!matched) {
     alert('メールアドレスまたはパスワードが正しくありません');
     document.getElementById('login-pass').value = '';
     return;
   }
-  showApp({ email: matched.email, name: matched.name });
+  showApp({ email: matched.email, name: matched.name, role: matched.role || '担当者' });
   await initApp();
 }
 async function doLogout() {
@@ -1968,8 +1970,16 @@ function openUserEdit(name, email, role) {
 function closeUserEdit() { document.getElementById('user-edit-overlay').style.display = 'none'; }
 function saveUserEdit() {
   const name = document.getElementById('ue-name').value;
+  const email = document.getElementById('ue-email').value;
   const newPw = document.getElementById('ue-pw-new').value;
-  alert('保存しました。\n氏名：' + name + (newPw ? '\nパスワードを更新しました。' : ''));
+  if (newPw) {
+    const staff = STAFF_ACCOUNTS.find(u => u.email === email);
+    if (staff) {
+      staff.password = newPw;
+      staff.name = name;
+    }
+  }
+  showToast('✅ 保存しました' + (newPw ? '（パスワード更新済み）' : ''));
   closeUserEdit();
 }
 function togglePwVisibility() {
