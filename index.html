@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -1010,7 +1011,21 @@
 // ==================== SUPABASE ====================
 const SUPABASE_URL = 'YOUR_SUPABASE_URL';
 const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// デモモード時はcreateClientがURLバリデーションエラーを投げるのでtry/catchで対処
+let sb;
+try {
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch(e) {
+  // デモ用スタブ（実際のSupabase接続なし）
+  sb = {
+    auth: {
+      signInWithPassword: async () => ({ data: null, error: null }),
+      signOut: async () => {},
+      getSession: async () => ({ data: { session: null } })
+    },
+    from: () => ({ select: async () => ({ data: [], error: null }) })
+  };
+}
 
 // ==================== DATA ====================
 let properties = [];
@@ -1037,7 +1052,6 @@ async function doLogin() {
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-pass').value;
   if (!email || !password) { alert('メールアドレスとパスワードを入力してください'); return; }
-  // デモモード: Supabase未設定時は任意のメール/パスワードでログイン可
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
     showApp({ email });
     await initApp();
@@ -1053,7 +1067,6 @@ async function doLogout() {
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
 }
-// セッション維持
 window.addEventListener('load', async () => {
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
   const { data: { session } } = await sb.auth.getSession();
@@ -1626,31 +1639,23 @@ function handleCardDrop(event) {
   const file = event.dataTransfer.files[0];
   if (file && file.type.startsWith('image/')) loadCardFile(file);
 }
-
 function previewCardImage(input) {
   const file = input.files[0];
   if (!file) return;
   loadCardFile(file);
 }
-
 function loadCardFile(file) {
   const reader = new FileReader();
-  reader.onload = e => {
-    setCardImage(e.target.result);
-    saveCardToStorage(e.target.result);
-  };
+  reader.onload = e => { setCardImage(e.target.result); saveCardToStorage(e.target.result); };
   reader.readAsDataURL(file);
 }
-
 function setCardImage(dataUrl) {
   const img = document.getElementById('naiken-card-preview');
-  img.src = dataUrl;
-  img.style.display = 'block';
+  img.src = dataUrl; img.style.display = 'block';
   document.querySelectorAll('.naiken-saved-thumb').forEach(el => {
     el.style.borderColor = el.src === dataUrl ? 'var(--primary)' : 'var(--gray-200)';
   });
 }
-
 let _savedCards = [];
 function saveCardToStorage(dataUrl) {
   try {
@@ -1662,7 +1667,6 @@ function saveCardToStorage(dataUrl) {
   } catch(e) {}
   renderSavedCards();
 }
-
 function renderSavedCards() {
   try { _savedCards = JSON.parse(localStorage.getItem('naiken_cards') || '[]'); } catch(e) { _savedCards = []; }
   const container = document.getElementById('naiken-saved-cards');
@@ -1672,18 +1676,27 @@ function renderSavedCards() {
   container.style.display = 'block';
   grid.innerHTML = '';
   const currentSrc = document.getElementById('naiken-card-preview')?.src || '';
-  _savedCards.forEach((dataUrl, i) => {
+  _savedCards.forEach(dataUrl => {
     const img = document.createElement('img');
-    img.src = dataUrl;
-    img.className = 'naiken-saved-thumb';
-    img.title = 'クリックして選択';
+    img.src = dataUrl; img.className = 'naiken-saved-thumb'; img.title = 'クリックして選択';
     img.style.borderColor = dataUrl === currentSrc ? 'var(--primary)' : 'var(--gray-200)';
     img.addEventListener('click', () => setCardImage(dataUrl));
     grid.appendChild(img);
   });
 }
 
-// ===== PDF生成: Canvasで描画して日本語文字化けを回避 =====
+// ===== html2canvasヘルパー: HTML要素をPDFにレンダリング =====
+async function _renderToPdf(el, fname) {
+  const canvas = await html2canvas(el, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false });
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+  const imgData = canvas.toDataURL('image/jpeg', 0.95);
+  const pdfH = Math.min((canvas.height / canvas.width) * 210, 297);
+  doc.addImage(imgData, 'JPEG', 0, 0, 210, pdfH);
+  doc.save(fname);
+}
+
+// ===== 内見依頼書PDF =====
 async function generateNaikenPDF() {
   const addressee = document.getElementById('naiken-addressee').value || '';
   const property  = document.getElementById('naiken-property').value  || '';
@@ -1692,231 +1705,100 @@ async function generateNaikenPDF() {
   const timeVal   = document.getElementById('naiken-time').value      || '';
   const cardImg   = document.getElementById('naiken-card-preview');
 
-  const { jsPDF } = window.jspdf;
+  const cardHtml = (cardImg && cardImg.src && cardImg.style.display !== 'none')
+    ? `<div style="margin-top:10mm"><p style="font-size:9pt;margin:0 0 2mm">【担当者名刺】</p>
+       <img src="${cardImg.src}" style="max-width:85mm;max-height:55mm;object-fit:contain;display:block"></div>` : '';
 
-  // A4サイズのCanvas（px単位で描画 - mm単位ではなくpxで明示的に指定）
-  const MM_PX = 3.78;
-  const SCALE = 2;
-  const PX = mm => Math.round(mm * MM_PX * SCALE);
-  const PT_PX = pt => Math.round(pt * 1.3333 * SCALE);
+  const rows = [['物件名',property],['号室',room],['内見日',dateVal.replace(/-/g,'/')],['時間',timeVal]];
 
-  const cv = document.createElement('canvas');
-  cv.width  = PX(210);
-  cv.height = PX(297);
-  const ctx = cv.getContext('2d');
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, cv.width, cv.height);
-
-  const JP = `'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo','Yu Gothic',sans-serif`;
-  const sf = (pt, bold = false) => {
-    ctx.font = `${bold ? 'bold ' : ''}${PT_PX(pt)}px ${JP}`;
-  };
-
-  ctx.fillStyle = '#000000';
-  const ml = PX(14), mr_x = cv.width - PX(14);
-  let y = PX(20);
-
-  // タイトル
-  sf(20, true);
-  ctx.textAlign = 'center';
-  ctx.fillText('内見依頼書', cv.width / 2, y);
-  y += PX(10);
-
-  // 宛先（左）
-  if (addressee) {
-    sf(11, false);
-    ctx.textAlign = 'left';
-    ctx.fillText(addressee + ' 御中', ml, y);
-  }
-
-  // 自社情報（右）
-  const rightLines = [
-    '株式会社クラウドコンサルティング',
-    '〒151-0053',
-    '東京都渋谷区代々木2-16-15 新宿オークビル1階',
-    'TEL:03-6300-4577  FAX:03-6300-4578',
-  ];
-  sf(8, false);
-  ctx.textAlign = 'right';
-  rightLines.forEach((line, i) => ctx.fillText(line, mr_x, y + i * PX(4.5)));
-  y += PX(rightLines.length * 4.5 + 6);
-
-  // 区切り線
-  ctx.strokeStyle = '#bbbbbb';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(mr_x, y); ctx.stroke();
-  y += PX(8);
-
-  // テーブル
-  const colW1 = PX(40), colW2 = PX(210 - 14 - 14 - 40), rowH = PX(10);
-  const rows = [
-    ['物件名', property],
-    ['号室',   room],
-    ['内見日', dateVal.replace(/-/g, '/')],
-    ['時間',   timeVal],
-  ];
-  ctx.textAlign = 'left';
-  rows.forEach(([label, value]) => {
-    ctx.fillStyle = '#eeeeee';
-    ctx.fillRect(ml, y, colW1, rowH);
-    ctx.strokeStyle = '#bbbbbb';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(ml, y, colW1, rowH);
-    ctx.strokeRect(ml + colW1, y, colW2, rowH);
-    ctx.fillStyle = '#000000';
-    sf(10, true);
-    ctx.fillText(label, ml + PX(2), y + PX(7));
-    sf(10, false);
-    ctx.fillText(value || '', ml + colW1 + PX(3), y + PX(7));
-    y += rowH;
-  });
-  y += PX(12);
-
-  // 名刺画像
-  if (cardImg && cardImg.src && cardImg.style.display !== 'none') {
-    sf(9, false);
-    ctx.textAlign = 'left';
-    ctx.fillText('【担当者名刺】', ml, y);
-    y += PX(5);
-    try {
-      const im = new Image();
-      await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = cardImg.src; });
-      const maxW = PX(85), maxH = PX(55);
-      let iw = maxW, ih = (im.naturalHeight / im.naturalWidth) * maxW;
-      if (ih > maxH) { ih = maxH; iw = (im.naturalWidth / im.naturalHeight) * maxH; }
-      ctx.drawImage(im, ml, y, iw, ih);
-    } catch(e) {}
-  }
-
-  // PDF出力（Canvas → JPEG → jsPDF）
-  const imgData = cv.toDataURL('image/jpeg', 0.95);
-  const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-  doc.addImage(imgData, 'JPEG', 0, 0, 210, 297);
-  const fname = ('内見依頼書_' + property + room + '.pdf').replace(/[\s　]/g, '_');
-  doc.save(fname);
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;z-index:-1';
+  wrap.innerHTML = `<div id="_pdf_n" style="width:794px;padding:53px;font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo','Yu Gothic',sans-serif;font-size:10pt;line-height:1.5;color:#000;background:#fff;box-sizing:border-box">
+    <h1 style="text-align:center;font-size:20pt;font-weight:bold;margin:0 0 8mm">内見依頼書</h1>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm">
+      <div style="font-size:11pt">${addressee ? addressee + ' 御中' : ''}</div>
+      <div style="text-align:right;font-size:8pt;line-height:1.7">
+        <div>株式会社クラウドコンサルティング</div><div>〒151-0053</div>
+        <div>東京都渋谷区代々木2-16-15 新宿オークビル1階</div>
+        <div>TEL:03-6300-4577　FAX:03-6300-4578</div>
+      </div>
+    </div>
+    <hr style="border:none;border-top:0.3mm solid #aaa;margin-bottom:6mm">
+    <table style="width:100%;border-collapse:collapse;font-size:10pt">
+      ${rows.map(([k,v])=>`<tr>
+        <td style="background:#eee;font-weight:bold;padding:2.5mm 3mm;border:0.3mm solid #aaa;width:42mm">${k}</td>
+        <td style="padding:2.5mm 3mm;border:0.3mm solid #aaa">${v||''}</td></tr>`).join('')}
+    </table>
+    ${cardHtml}
+  </div>`;
+  document.body.appendChild(wrap);
+  try {
+    await _renderToPdf(wrap.querySelector('#_pdf_n'), ('内見依頼書_'+property+room+'.pdf').replace(/[\s　]/g,'_'));
+  } finally { document.body.removeChild(wrap); }
 }
 
+// ===== 請求書PDF =====
 async function generateInvoicePDF() {
-  const addressee  = document.getElementById('inv-addressee').value   || '（宛先）';
-  const issueDate  = document.getElementById('inv-date').value        || '';
-  const property   = document.getElementById('inv-property').value    || '';
-  const type       = document.getElementById('inv-type').value        || '仲介手数料';
-  const tradeDate  = document.getElementById('inv-trade-date').value  || '';
-  const amtEx      = parseInt(document.getElementById('inv-amount').value) || 0;
-  const taxRate    = parseInt(document.getElementById('inv-tax-rate').value) || 10;
-  const staff      = document.getElementById('inv-staff').value       || '小口';
+  const addressee = document.getElementById('inv-addressee').value  || '';
+  const issueDate = document.getElementById('inv-date').value       || '';
+  const property  = document.getElementById('inv-property').value   || '';
+  const type      = document.getElementById('inv-type').value       || '仲介手数料';
+  const tradeDate = document.getElementById('inv-trade-date').value || '';
+  const amtEx     = parseInt(document.getElementById('inv-amount').value) || 0;
+  const taxRate   = parseInt(document.getElementById('inv-tax-rate').value) || 10;
+  const staff     = document.getElementById('inv-staff').value      || '';
 
-  const taxAmt     = Math.round(amtEx * taxRate / 100);
-  const totalAmt   = amtEx + taxAmt;
-  const fmtYen = n => '¥' + n.toLocaleString('ja-JP');
+  const taxAmt  = Math.round(amtEx * taxRate / 100);
+  const totalAmt = amtEx + taxAmt;
+  const yen = n => '¥' + n.toLocaleString('ja-JP');
+  const issueFmt = issueDate.replace(/-/g,'/');
+  const tradeFmt = tradeDate.replace(/-/g,'/');
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-
-  const loaded = await loadNotoFont(doc);
-
-  const W = 210, ml = 14, mr = 14;
-  let y = 14;
-
-  // 発行日（右上）
-  doc.setFontSize(9);
-  doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'normal');
-  const issueDateFmt = issueDate ? issueDate.replace(/-/g, '/') : '';
-  doc.text('発行日　' + issueDateFmt, W - mr, y, { align: 'right' });
-
-  // 発行元（右）
-  const rightLines = [
-    '〒151-0053',
-    '東京都渋谷区代々木2丁目16番15号',
-    '株式会社クラウドコンサルティング',
-    '担当：' + staff,
-    '電話：03-6300-4577',
-    '登録番号：T2011101070887',
-  ];
-  doc.setFontSize(9);
-  y += 6;
-  rightLines.forEach((line, i) => {
-    doc.text(line, W - mr, y + i * 5, { align: 'right' });
-  });
-
-  // 宛先（左）
-  doc.setFontSize(14);
-  doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'bold');
-  doc.text(addressee + ' 様', ml, y + 10);
-
-  y += rightLines.length * 5 + 12;
-
-  // タイトル
-  doc.setFontSize(22);
-  doc.text('御　請　求　書', W / 2, y, { align: 'center' });
-  y += 14;
-
-  // 件名・金額ボックス
-  doc.setFontSize(10);
-  doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'normal');
-
-  // 件名行
-  doc.setDrawColor(100);
-  doc.rect(ml, y, W - ml - mr, 10);
-  doc.setFillColor(245, 245, 245);
-  doc.rect(ml, y, 40, 10, 'F');
-  doc.rect(ml, y, 40, 10);
-  doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'bold');
-  doc.text('件名', ml + 2, y + 6.5);
-  doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'normal');
-  doc.text(property + '　' + type, ml + 43, y + 6.5);
-  y += 10;
-
-  // ご請求金額行
-  doc.setFillColor(245, 245, 245);
-  doc.rect(ml, y, 40, 14, 'F');
-  doc.rect(ml, y, 40, 14);
-  doc.rect(ml + 40, y, W - ml - mr - 40, 14);
-  doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'bold');
-  doc.text('ご請求金額', ml + 2, y + 9);
-  doc.setFontSize(16);
-  doc.text(fmtYen(totalAmt), ml + 42 + (W - ml - mr - 42) / 2, y + 10, { align: 'center' });
-  y += 18;
-
-  // メッセージ
-  doc.setFontSize(10);
-  doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'normal');
-  doc.text('ありがとうございます。以下の通りご請求申し上げます。', ml, y);
-  y += 10;
-
-  // 明細テーブル
-  const headers = ['件名', '取引日', '税抜金額', '消費税等', '適用税率', '小計'];
-  const colWidths = [45, 28, 28, 24, 22, 28];
-  const tradeDateFmt = tradeDate ? tradeDate.replace(/-/g, '/') : '';
-  const dataRow = [type, tradeDateFmt, fmtYen(amtEx), fmtYen(taxAmt), taxRate + '%', fmtYen(totalAmt)];
-
-  // ヘッダー行
-  doc.setFillColor(144, 195, 120);
-  let x = ml;
-  headers.forEach((h, i) => {
-    doc.rect(x, y, colWidths[i], 8, 'F');
-    doc.rect(x, y, colWidths[i], 8);
-    doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text(h, x + colWidths[i] / 2, y + 5.5, { align: 'center' });
-    x += colWidths[i];
-  });
-  y += 8;
-
-  // データ行
-  x = ml;
-  dataRow.forEach((val, i) => {
-    doc.rect(x, y, colWidths[i], 9);
-    doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(val, x + colWidths[i] / 2, y + 6, { align: 'center' });
-    x += colWidths[i];
-  });
-  y += 9;
-
-  const fname = `請求書_${property}_${addressee}.pdf`.replace(/\s/g, '_');
-  doc.save(fname);
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;z-index:-1';
+  wrap.innerHTML = `<div id="_pdf_i" style="width:794px;padding:53px;font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo','Yu Gothic',sans-serif;font-size:10pt;line-height:1.5;color:#000;background:#fff;box-sizing:border-box">
+    <div style="text-align:right;font-size:9pt;margin-bottom:4mm">発行日　${issueFmt}</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm">
+      <div style="font-size:14pt;font-weight:bold">${addressee ? addressee+' 様' : ''}</div>
+      <div style="text-align:right;font-size:9pt;line-height:1.7">
+        <div>〒151-0053</div>
+        <div>東京都渋谷区代々木2丁目16番15号</div>
+        <div>株式会社クラウドコンサルティング</div>
+        <div>担当：${staff}</div>
+        <div>電話：03-6300-4577</div>
+        <div>登録番号：T2011101070887</div>
+      </div>
+    </div>
+    <h1 style="text-align:center;font-size:22pt;font-weight:bold;margin:4mm 0 8mm">御　請　求　書</h1>
+    <table style="width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:4mm">
+      <tr>
+        <td style="background:#f5f5f5;font-weight:bold;border:0.5px solid #666;width:42mm;padding:2.5mm 3mm">件名</td>
+        <td style="border:0.5px solid #666;padding:2.5mm 3mm">${property}　${type}</td>
+      </tr>
+      <tr>
+        <td style="background:#f5f5f5;font-weight:bold;border:0.5px solid #666;padding:3.5mm 3mm">ご請求金額</td>
+        <td style="border:0.5px solid #666;padding:3mm;font-size:16pt;font-weight:bold;text-align:center">${yen(totalAmt)}</td>
+      </tr>
+    </table>
+    <p style="font-size:10pt;margin:0 0 4mm">ありがとうございます。以下の通りご請求申し上げます。</p>
+    <table style="width:100%;border-collapse:collapse;font-size:9pt">
+      <thead><tr style="background:#90c378">
+        ${['件名','取引日','税抜金額','消費税等','適用税率','小計'].map(h=>`<th style="border:0.5px solid #666;padding:2mm 3mm;text-align:center">${h}</th>`).join('')}
+      </tr></thead>
+      <tbody><tr>
+        <td style="border:0.5px solid #666;padding:2.5mm 3mm;text-align:center">${type}</td>
+        <td style="border:0.5px solid #666;padding:2.5mm 3mm;text-align:center">${tradeFmt}</td>
+        <td style="border:0.5px solid #666;padding:2.5mm 3mm;text-align:right">${yen(amtEx)}</td>
+        <td style="border:0.5px solid #666;padding:2.5mm 3mm;text-align:right">${yen(taxAmt)}</td>
+        <td style="border:0.5px solid #666;padding:2.5mm 3mm;text-align:center">${taxRate}%</td>
+        <td style="border:0.5px solid #666;padding:2.5mm 3mm;text-align:right">${yen(totalAmt)}</td>
+      </tr></tbody>
+    </table>
+  </div>`;
+  document.body.appendChild(wrap);
+  try {
+    await _renderToPdf(wrap.querySelector('#_pdf_i'), ('請求書_'+property+'_'+addressee+'.pdf').replace(/[\s　]/g,'_'));
+  } finally { document.body.removeChild(wrap); }
 }
 
 // ==================== CONTENT MANAGEMENT ====================
