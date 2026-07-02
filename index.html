@@ -402,100 +402,18 @@
         <div class="card">
           <div class="card-header">
             <h3>⚠️ 要対応リスト</h3>
-            <span style="font-size:12px;color:var(--gray-400)">6件</span>
+            <span id="alert-count" style="font-size:12px;color:var(--gray-400)">0件</span>
           </div>
-          <div class="card-body scrollable">
-            <div class="alert-item" onclick="navigate('inquiries')">
-              <div class="alert-dot dot-danger"></div>
-              <div>
-                <div class="alert-text">未対応の問い合わせが3件あります</div>
-                <div class="alert-meta">問い合わせ管理 → 新規ステータス</div>
-              </div>
-            </div>
-            <div class="alert-item" onclick="navigate('finance')">
-              <div class="alert-dot dot-danger"></div>
-              <div>
-                <div class="alert-text">【未入金】田中 一郎 – サンシャイン102号室（6月分）</div>
-                <div class="alert-meta">入金期日：2026/06/05 を過ぎています</div>
-              </div>
-            </div>
-            <div class="alert-item" onclick="navigate('finance')">
-              <div class="alert-dot dot-warning"></div>
-              <div>
-                <div class="alert-text">【未入金】佐藤 花子 – グランドヒルズ305号室（6月分）</div>
-                <div class="alert-meta">入金期日：2026/06/05 を過ぎています</div>
-              </div>
-            </div>
-            <div class="alert-item" onclick="navigate('contracts')">
-              <div class="alert-dot dot-warning"></div>
-              <div>
-                <div class="alert-text">契約更新期日まで30日 – 山田 太郎（エステート201号室）</div>
-                <div class="alert-meta">契約満了日：2026/07/22</div>
-              </div>
-            </div>
-            <div class="alert-item" onclick="navigate('contracts')">
-              <div class="alert-dot dot-warning"></div>
-              <div>
-                <div class="alert-text">契約更新期日まで58日 – 鈴木 美咲（パークサイド103号室）</div>
-                <div class="alert-meta">契約満了日：2026/08/19</div>
-              </div>
-            </div>
-            <div class="alert-item" onclick="navigate('inquiries')">
-              <div class="alert-dot dot-info"></div>
-              <div>
-                <div class="alert-text">内見後フォローアップ未実施 – 高橋 健二</div>
-                <div class="alert-meta">内見日：2026/06/18（4日経過）</div>
-              </div>
-            </div>
+          <div class="card-body scrollable" id="dashboard-alerts">
+            <div style="text-align:center;color:var(--gray-400);padding:32px 16px;font-size:13px">現在、要対応の案件はありません</div>
           </div>
         </div>
         <div class="card">
           <div class="card-header">
             <h3>🕐 直近アクティビティ</h3>
           </div>
-          <div class="card-body scrollable">
-            <div class="activity-item">
-              <div class="activity-icon ai-blue">💬</div>
-              <div>
-                <div class="activity-text">新規問い合わせ登録 – 加藤 美奈子（SUUMO経由）</div>
-                <div class="activity-time">小口 大貴 ・ 本日 14:32</div>
-              </div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-icon ai-green">✅</div>
-              <div>
-                <div class="activity-text">入金確認済み – 木村 達也（サンシャイン204号室 6月分）</div>
-                <div class="activity-time">田村 スタッフ ・ 本日 11:05</div>
-              </div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-icon ai-blue">📅</div>
-              <div>
-                <div class="activity-text">内見予約登録 – 山本 健一 → パークサイド201号室 6/25 14:00</div>
-                <div class="activity-time">小口 大貴 ・ 本日 10:48</div>
-              </div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-icon ai-yellow">📄</div>
-              <div>
-                <div class="activity-text">契約情報更新 – 松本 純子（エステート305号室）賃料改定</div>
-                <div class="activity-time">田村 スタッフ ・ 昨日 17:20</div>
-              </div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-icon ai-green">🏠</div>
-              <div>
-                <div class="activity-text">物件情報更新 – グランドヒルズ 写真アップロード</div>
-                <div class="activity-time">小口 大貴 ・ 昨日 15:33</div>
-              </div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-icon ai-blue">💬</div>
-              <div>
-                <div class="activity-text">問い合わせステータス変更 – 高橋 健二 → 内見済</div>
-                <div class="activity-time">田村 スタッフ ・ 昨日 10:15</div>
-              </div>
-            </div>
+          <div class="card-body scrollable" id="dashboard-activity">
+            <div style="text-align:center;color:var(--gray-400);padding:32px 16px;font-size:13px">アクティビティはありません</div>
           </div>
         </div>
       </div>
@@ -1080,7 +998,7 @@
         <div class="form-group" style="margin-bottom:10px">
           <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:6px">現在のパスワード</label>
           <div style="display:flex;gap:8px;align-items:center">
-            <input type="password" id="ue-pw-display" value="password1234" readonly style="flex:1;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#f9fafb;outline:none">
+            <input type="password" id="ue-pw-display" value="" readonly style="flex:1;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#f9fafb;outline:none">
             <button onclick="togglePwVisibility()" style="padding:9px 14px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;cursor:pointer;background:#fff" title="表示/非表示">👁</button>
           </div>
         </div>
@@ -1286,10 +1204,33 @@ function renderDashboardKPIs() {
   const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   set('kpi-active', active);
   set('kpi-reviewing', reviewing + '件');
-  set('kpi-viewings', v || '8');
+  set('kpi-viewings', v || 0);
   set('kpi-applied', applied);
   set('kpi-contracted', contracted);
-  set('kpi-rate', rate || '25');
+  set('kpi-rate', rate || 0);
+  renderDashboardAlerts();
+}
+
+function renderDashboardAlerts() {
+  const el = document.getElementById('dashboard-alerts');
+  const countEl = document.getElementById('alert-count');
+  if (!el) return;
+  const newCases = cases.filter(c => c.status === 'new');
+  const viewedCases = cases.filter(c => c.status === 'viewed');
+  const reviewingCases = cases.filter(c => c.status === 'reviewing');
+  const items = [];
+  if (newCases.length) items.push({ dot:'dot-danger', text:`未対応の問い合わせが${newCases.length}件あります`, meta:'案件管理 → 問い合わせステータス', page:'cases' });
+  viewedCases.forEach(c => items.push({ dot:'dot-info', text:`内見後フォローアップ未実施 – ${c.name}`, meta:`物件：${c.property}${c.room?' '+c.room+'号室':''}`, page:'cases' }));
+  reviewingCases.forEach(c => items.push({ dot:'dot-warning', text:`審査中フォロー – ${c.name}`, meta:`物件：${c.property}${c.room?' '+c.room+'号室':''}`, page:'cases' }));
+  if (countEl) countEl.textContent = items.length + '件';
+  if (!items.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--gray-400);padding:32px 16px;font-size:13px">現在、要対応の案件はありません</div>';
+    return;
+  }
+  el.innerHTML = items.map(item => `<div class="alert-item" onclick="navigate('${item.page}')">
+    <div class="alert-dot ${item.dot}"></div>
+    <div><div class="alert-text">${item.text}</div><div class="alert-meta">${item.meta}</div></div>
+  </div>`).join('');
 }
 
 // ==================== CASES ====================
@@ -1676,10 +1617,11 @@ function changeMonth(d) { calendarDate.setMonth(calendarDate.getMonth() + d); re
 
 // ==================== FINANCE ====================
 function initMonthTabs() {
-  const months = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
-  const labels = { '2026-01':'1月', '2026-02':'2月', '2026-03':'3月', '2026-04':'4月', '2026-05':'5月', '2026-06':'6月' };
+  const now = new Date(); const months = [], labels = {};
+  for (let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');months.push(k);labels[k]=(d.getMonth()+1)+'月';}
+  currentFinanceMonth = months[months.length-1];
   const tabs = document.getElementById('month-tabs');
-  tabs.innerHTML = months.map(m => `<div class="month-tab${m === currentFinanceMonth ? ' active' : ''}" onclick="selectMonth('${m}',this)">${labels[m]}</div>`).join('');
+  if(tabs) tabs.innerHTML = months.map(m => `<div class="month-tab${m === currentFinanceMonth ? ' active' : ''}" onclick="selectMonth('${m}',this)">${labels[m]}</div>`).join('');
 }
 function selectMonth(m, el) {
   currentFinanceMonth = m;
@@ -1730,18 +1672,21 @@ async function markPaid(id) {
 
 // ==================== REPORT ====================
 function renderReport() {
-  const months = ['1月','2月','3月','4月','5月','6月'];
   const tbody = document.getElementById('report-tbody');
-  // payments から月別に集計
-  const monthKeys = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
-  tbody.innerHTML = months.map((m, i) => {
-    const mk = monthKeys[i];
+  const _now = new Date();
+  const monthKeys = [], monthLabels = [];
+  for (let i=5;i>=0;i--) {
+    const d = new Date(_now.getFullYear(), _now.getMonth()-i, 1);
+    monthKeys.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+    monthLabels.push(d.getFullYear()+'年'+(d.getMonth()+1)+'月');
+  }
+  tbody.innerHTML = monthKeys.map((mk, i) => {
     const rows = payments.filter(p => p.month === mk);
     const income = rows.filter(p => p.type === 'income').reduce((s, p) => s + (p.amount || 0), 0);
     const expense = rows.filter(p => p.type === 'expense').reduce((s, p) => s + (p.amount || 0), 0);
     const net = income - expense;
     return `<tr>
-      <td>2026年 ${m}</td>
+      <td>${monthLabels[i]}</td>
       <td style="color:var(--success);font-weight:600">¥${income.toLocaleString()}</td>
       <td style="color:var(--danger)">¥${expense.toLocaleString()}</td>
       <td style="font-weight:700">¥${net.toLocaleString()}</td>
@@ -1753,9 +1698,10 @@ let reportChartInstance = null;
 function renderReportChart() {
   const canvas = document.getElementById('report-chart');
   if (!canvas) return;
-  const income = [4320000, 4320000, 4320000, 4400000, 4400000, 4315000, 4400000, 4400000, 4400000, 4400000, 4400000, 4445000];
-  const expense = [320000, 450000, 280000, 890000, 310000, 280000, 400000, 650000, 290000, 320000, 780000, 350000];
-  const labels = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const _n3=new Date();const labels=[],incomeKeys=[];
+  for(let i=5;i>=0;i--){const d=new Date(_n3.getFullYear(),_n3.getMonth()-i,1);incomeKeys.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));labels.push((d.getMonth()+1)+'月');}
+  const income = incomeKeys.map(mk => payments.filter(p=>p.month===mk&&p.type==='income').reduce((s,p)=>s+(p.amount||0),0));
+  const expense = incomeKeys.map(mk => payments.filter(p=>p.month===mk&&p.type==='expense').reduce((s,p)=>s+(p.amount||0),0));
   if (reportChartInstance) reportChartInstance.destroy();
   reportChartInstance = new Chart(canvas, {
     type: 'bar',
@@ -1774,7 +1720,7 @@ function renderDashboardChart() {
   const canvas = document.getElementById('dashboard-chart');
   if (!canvas) return;
   const months = ['1月','2月','3月','4月','5月','6月'];
-  const monthKeys = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
+  const _n2=new Date();const monthKeys=[];for(let i=5;i>=0;i--){const d=new Date(_n2.getFullYear(),_n2.getMonth()-i,1);monthKeys.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));}
   const income = monthKeys.map(mk => payments.filter(p => p.month === mk && p.type === 'income').reduce((s,p) => s+(p.amount||0), 0));
   const expense = monthKeys.map(mk => payments.filter(p => p.month === mk && p.type === 'expense').reduce((s,p) => s+(p.amount||0), 0));
   if (dashChartInstance) dashChartInstance.destroy();
@@ -1972,6 +1918,8 @@ function openUserEdit(name, email, role) {
   document.getElementById('ue-role').value = role;
   document.getElementById('ue-pw-new').value = '';
   document.getElementById('ue-pw-display').type = 'password';
+  const staff = STAFF_ACCOUNTS.find(u => u.email === email);
+  document.getElementById('ue-pw-display').value = staff ? staff.password : '';
   document.getElementById('user-edit-overlay').style.display = 'flex';
 }
 function closeUserEdit() { document.getElementById('user-edit-overlay').style.display = 'none'; }
