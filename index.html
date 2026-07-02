@@ -261,7 +261,9 @@
   .doc-form-group input, .doc-form-group select, .doc-form-group textarea { width:100%; padding:9px 12px; border:1.5px solid var(--gray-300); border-radius:8px; font-size:14px; outline:none; font-family:inherit; transition:border-color .2s; }
   .doc-form-group input:focus, .doc-form-group select:focus { border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light); }
   .doc-form-group .file-upload-area { border:2px dashed var(--gray-300); border-radius:8px; padding:24px; text-align:center; cursor:pointer; transition:all .2s; }
-  .doc-form-group .file-upload-area:hover { border-color:var(--primary); background:var(--primary-light); }
+  .doc-form-group .file-upload-area:hover, .doc-form-group .file-upload-area.drag-over { border-color:var(--primary); background:var(--primary-light); }
+  .naiken-saved-thumb { width:90px;height:56px;object-fit:cover;cursor:pointer;border-radius:6px;border:2px solid var(--gray-200);transition:.15s; }
+  .naiken-saved-thumb:hover { border-color:var(--primary); transform:scale(1.05); }
   .doc-form-group .file-preview { margin-top:12px; max-width:200px; max-height:140px; border-radius:6px; border:1px solid var(--gray-200); }
   .doc-actions { display:flex; gap:12px; align-items:center; }
   .btn-pdf { display:inline-flex; align-items:center; gap:8px; padding:11px 24px; background:var(--danger); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:background .2s; }
@@ -823,14 +825,22 @@
             </div>
           </div>
           <div class="doc-form-group">
-            <label>名刺画像（必須）</label>
-            <div class="file-upload-area" onclick="document.getElementById('naiken-card-file').click()">
+            <label>名刺画像（任意）</label>
+            <div class="file-upload-area" id="naiken-drop-area"
+                 ondragover="event.preventDefault();this.classList.add('drag-over')"
+                 ondragleave="this.classList.remove('drag-over')"
+                 ondrop="handleCardDrop(event)"
+                 onclick="document.getElementById('naiken-card-file').click()">
               <div style="font-size:24px">📇</div>
-              <div style="font-size:13px;color:var(--gray-500);margin-top:6px">クリックして名刺画像を選択</div>
+              <div style="font-size:13px;color:var(--gray-500);margin-top:6px">クリック or ドラッグ&amp;ドロップで名刺画像を追加</div>
               <div style="font-size:11px;color:var(--gray-400);margin-top:4px">JPG / PNG</div>
             </div>
             <input type="file" id="naiken-card-file" accept="image/*" style="display:none" onchange="previewCardImage(this)">
-            <img id="naiken-card-preview" class="file-preview" style="display:none">
+            <img id="naiken-card-preview" class="file-preview" style="display:none;max-width:220px;margin-top:8px;border-radius:8px;border:2px solid var(--primary)">
+            <div id="naiken-saved-cards" style="display:none;margin-top:12px">
+              <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:6px">📂 保存済み名刺 <span style="font-weight:400;color:var(--gray-400)">(クリックで選択)</span></div>
+              <div id="naiken-saved-cards-grid" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+            </div>
           </div>
           <div class="doc-actions">
             <button class="btn-pdf" onclick="generateNaikenPDF()">📄 PDF を生成・ダウンロード</button>
@@ -1065,6 +1075,7 @@ function navigate(page) {
     }
     if (page === 'naiken') {
       if (!document.getElementById('naiken-date').value) document.getElementById('naiken-date').value = today;
+      renderSavedCards();
     }
   }
   document.getElementById('page-title').textContent = titles[page] || page;
@@ -1604,36 +1615,75 @@ async function submitModal() {
 document.getElementById('modal-overlay').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
 // ==================== DOCUMENT GENERATION ====================
+
+// 名刺画像のドラッグ&ドロップ
+function handleCardDrop(event) {
+  event.preventDefault();
+  document.getElementById('naiken-drop-area').classList.remove('drag-over');
+  const file = event.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadCardFile(file);
+}
+
 function previewCardImage(input) {
   const file = input.files[0];
   if (!file) return;
+  loadCardFile(file);
+}
+
+function loadCardFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
-    const img = document.getElementById('naiken-card-preview');
-    img.src = e.target.result;
-    img.style.display = 'block';
+    setCardImage(e.target.result);
+    saveCardToStorage(e.target.result);
   };
   reader.readAsDataURL(file);
 }
 
-// 日本語フォント対応のヘルパー（jsPDFはデフォルトで日本語非対応のため、Notoフォントを使用）
-async function loadNotoFont(doc) {
-  try {
-    const resp = await fetch('https://fonts.gstatic.com/ea/notosansjapanese/v6/NotoSansJP-Regular.otf');
-    if (!resp.ok) throw new Error('font fetch failed');
-    const buf = await resp.arrayBuffer();
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-    doc.addFileToVFS('NotoSansJP-Regular.otf', b64);
-    doc.addFont('NotoSansJP-Regular.otf', 'NotoSansJP', 'normal');
-    doc.setFont('NotoSansJP');
-    return true;
-  } catch(e) {
-    return false;
-  }
+function setCardImage(dataUrl) {
+  const img = document.getElementById('naiken-card-preview');
+  img.src = dataUrl;
+  img.style.display = 'block';
+  // 選択中のサムネイルをハイライト
+  document.querySelectorAll('.naiken-saved-thumb').forEach(el => {
+    el.style.borderColor = el.src === dataUrl ? 'var(--primary)' : 'var(--gray-200)';
+  });
 }
 
+let _savedCards = [];
+function saveCardToStorage(dataUrl) {
+  try {
+    _savedCards = JSON.parse(localStorage.getItem('naiken_cards') || '[]');
+    _savedCards = _savedCards.filter(s => s !== dataUrl);
+    _savedCards.unshift(dataUrl);
+    _savedCards = _savedCards.slice(0, 6);
+    localStorage.setItem('naiken_cards', JSON.stringify(_savedCards));
+  } catch(e) {}
+  renderSavedCards();
+}
+
+function renderSavedCards() {
+  try { _savedCards = JSON.parse(localStorage.getItem('naiken_cards') || '[]'); } catch(e) { _savedCards = []; }
+  const container = document.getElementById('naiken-saved-cards');
+  const grid = document.getElementById('naiken-saved-cards-grid');
+  if (!container || !grid) return;
+  if (!_savedCards.length) { container.style.display = 'none'; return; }
+  container.style.display = 'block';
+  grid.innerHTML = '';
+  const currentSrc = document.getElementById('naiken-card-preview')?.src || '';
+  _savedCards.forEach((dataUrl, i) => {
+    const img = document.createElement('img');
+    img.src = dataUrl;
+    img.className = 'naiken-saved-thumb';
+    img.title = 'クリックして選択';
+    img.style.borderColor = dataUrl === currentSrc ? 'var(--primary)' : 'var(--gray-200)';
+    img.addEventListener('click', () => setCardImage(dataUrl));
+    grid.appendChild(img);
+  });
+}
+
+// ===== PDF生成: Canvasで描画して日本語文字化けを回避 =====
 async function generateNaikenPDF() {
-  const addressee = document.getElementById('naiken-addressee').value || '（仲介業者名）';
+  const addressee = document.getElementById('naiken-addressee').value || '';
   const property  = document.getElementById('naiken-property').value  || '';
   const room      = document.getElementById('naiken-room').value      || '';
   const dateVal   = document.getElementById('naiken-date').value      || '';
@@ -1641,85 +1691,107 @@ async function generateNaikenPDF() {
   const cardImg   = document.getElementById('naiken-card-preview');
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
 
-  const loaded = await loadNotoFont(doc);
-  if (!loaded) {
-    // フォールバック: 英語フォントで出力
-    doc.setFont('helvetica');
-  }
+  // A4サイズのCanvasを作成（3.78px/mm × 2倍品質）
+  const PX_PER_MM = 3.78 * 2;
+  const W_MM = 210, H_MM = 297;
+  const cv = document.createElement('canvas');
+  cv.width  = Math.round(W_MM * PX_PER_MM);
+  cv.height = Math.round(H_MM * PX_PER_MM);
+  const ctx = cv.getContext('2d');
+  ctx.scale(PX_PER_MM, PX_PER_MM); // mm単位で描画できるようにスケール
 
-  const W = 210, ml = 14, mr = 14;
-  let y = 18;
+  // 白背景
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W_MM, H_MM);
+
+  // フォントセッター（ptサイズ → mm変換、ブラウザ内蔵日本語フォント使用）
+  const JP = `'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo','Yu Gothic',sans-serif`;
+  const sf = (pt, bold = false) => {
+    ctx.font = `${bold ? 'bold ' : ''}${(pt * 0.3528).toFixed(2)}mm ${JP}`;
+  };
+
+  ctx.fillStyle = '#000000';
+  const ml = 14, mr = 14;
+  let y = 20;
 
   // タイトル
-  doc.setFontSize(20);
-  doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'bold');
-  doc.text('内見申込書', W / 2, y, { align: 'center' });
-  y += 12;
+  sf(20, true);
+  ctx.textAlign = 'center';
+  ctx.fillText('内見依頼書', W_MM / 2, y);
+  y += 10;
 
-  // 宛先（左）・発行元（右）
-  doc.setFontSize(11);
-  doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'normal');
-  doc.text(addressee + ' 御中', ml, y);
+  // 宛先（左）
+  if (addressee) {
+    sf(11, false);
+    ctx.textAlign = 'left';
+    ctx.fillText(addressee + ' 御中', ml, y);
+  }
 
+  // 自社情報（右）
   const rightLines = [
     '株式会社クラウドコンサルティング',
     '〒151-0053',
     '東京都渋谷区代々木2-16-15 新宿オークビル1階',
-    'TEL:03-6300-4577',
-    'FAX:03-6300-4578',
+    'TEL:03-6300-4577  FAX:03-6300-4578',
   ];
-  doc.setFontSize(9);
-  rightLines.forEach((line, i) => {
-    doc.text(line, W - mr, y + i * 5, { align: 'right' });
-  });
-  y += rightLines.length * 5 + 8;
+  sf(8, false);
+  ctx.textAlign = 'right';
+  rightLines.forEach((line, i) => ctx.fillText(line, W_MM - mr, y + i * 4.5));
+  y += rightLines.length * 4.5 + 6;
 
   // 区切り線
-  doc.setDrawColor(180);
-  doc.line(ml, y, W - mr, y);
-  y += 6;
+  ctx.strokeStyle = '#bbbbbb';
+  ctx.lineWidth = 0.3;
+  ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(W_MM - mr, y); ctx.stroke();
+  y += 8;
 
   // テーブル
-  const fields = [
+  const colW1 = 40, colW2 = W_MM - ml - mr - colW1, rowH = 10;
+  const rows = [
     ['物件名', property],
-    ['号室', room],
-    ['日時', dateVal ? dateVal.replace(/-/g, '/') : ''],
-    ['時間', timeVal],
+    ['号室',   room],
+    ['内見日', dateVal.replace(/-/g, '/')],
+    ['時間',   timeVal],
   ];
-  const colW = [40, 120];
-  doc.setFontSize(10);
-  fields.forEach(([label, value]) => {
-    doc.setFillColor(230, 230, 230);
-    doc.rect(ml, y, colW[0], 10, 'F');
-    doc.setDrawColor(180);
-    doc.rect(ml, y, colW[0], 10);
-    doc.rect(ml + colW[0], y, colW[1], 10);
-    doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'bold');
-    doc.text(label, ml + 2, y + 6.5);
-    doc.setFont(loaded ? 'NotoSansJP' : 'helvetica', 'normal');
-    doc.text(value, ml + colW[0] + 3, y + 6.5);
-    y += 10;
+  ctx.textAlign = 'left';
+  rows.forEach(([label, value]) => {
+    ctx.fillStyle = '#eeeeee';
+    ctx.fillRect(ml, y, colW1, rowH);
+    ctx.strokeStyle = '#bbbbbb';
+    ctx.lineWidth = 0.3;
+    ctx.strokeRect(ml, y, colW1, rowH);
+    ctx.strokeRect(ml + colW1, y, colW2, rowH);
+    ctx.fillStyle = '#000000';
+    sf(10, true);
+    ctx.fillText(label, ml + 2, y + 7);
+    sf(10, false);
+    ctx.fillText(value || '　', ml + colW1 + 3, y + 7);
+    y += rowH;
   });
-  y += 10;
+  y += 12;
 
   // 名刺画像
   if (cardImg && cardImg.src && cardImg.style.display !== 'none') {
-    doc.setFontSize(9);
-    doc.text('【担当者名刺】', ml, y);
-    y += 4;
+    sf(9, false);
+    ctx.textAlign = 'left';
+    ctx.fillText('【担当者名刺】', ml, y);
+    y += 5;
     try {
-      const imgProps = doc.getImageProperties(cardImg.src);
-      const maxW = 80, maxH = 50;
-      let imgW = maxW, imgH = (imgProps.height / imgProps.width) * maxW;
-      if (imgH > maxH) { imgH = maxH; imgW = (imgProps.width / imgProps.height) * maxH; }
-      doc.addImage(cardImg.src, 'JPEG', ml, y, imgW, imgH);
-      y += imgH + 4;
+      const im = new Image();
+      await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = cardImg.src; });
+      const maxW = 85, maxH = 55;
+      let iw = maxW, ih = (im.naturalHeight / im.naturalWidth) * maxW;
+      if (ih > maxH) { ih = maxH; iw = (im.naturalWidth / im.naturalHeight) * maxH; }
+      ctx.drawImage(im, ml, y, iw, ih);
     } catch(e) {}
   }
 
-  const fname = `内見申込書_${property}_${room}.pdf`.replace(/\s/g, '_');
+  // PDF出力
+  const imgData = cv.toDataURL('image/jpeg', 0.95);
+  const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+  doc.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+  const fname = `内見依頼書_${property}${room}.pdf`.replace(/[\s　]/g, '_');
   doc.save(fname);
 }
 
