@@ -1171,7 +1171,7 @@ function showApp(user) {
   document.querySelector('.user-avatar').textContent = name.charAt(0).toUpperCase();
   updateTopbarDate();
 }
-async async function doLogin() {
+async function doLogin() {
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-pass').value;
   if (!email || !password) { alert('メールアドレスとパスワードを入力してください'); return; }
