@@ -11,6 +11,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -313,21 +315,12 @@
         <span class="icon">📊</span> ダッシュボード
       </div>
       <div class="nav-section">業務管理</div>
-      <div class="nav-item" onclick="navigate('inquiries')">
-        <span class="icon">💬</span> 問い合わせ管理
-        <span class="nav-badge" id="badge-inquiries">3</span>
+      <div class="nav-item" onclick="navigate('cases')">
+        <span class="icon">📋</span> 案件管理
+        <span class="nav-badge" id="badge-cases"></span>
       </div>
       <div class="nav-item" onclick="navigate('calendar')">
         <span class="icon">📅</span> 内見カレンダー
-      </div>
-      <div class="nav-item" onclick="navigate('properties')">
-        <span class="icon">🏠</span> 物件管理
-      </div>
-      <div class="nav-item" onclick="navigate('tenants')">
-        <span class="icon">👤</span> 入居者管理
-      </div>
-      <div class="nav-item" onclick="navigate('contracts')">
-        <span class="icon">📄</span> 契約管理
       </div>
       <div class="nav-section">書類</div>
       <div class="nav-item" onclick="navigate('naiken')">
@@ -383,25 +376,25 @@
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-label">空室率</div>
-          <div class="kpi-value">12<span style="font-size:18px">%</span></div>
-          <div class="kpi-sub">全50室中 6室空室 <span class="kpi-trend-up">▲ 前月比+2%</span></div>
+        <div class="kpi-card" onclick="navigate('cases')" style="cursor:pointer">
+          <div class="kpi-label">進行中案件</div>
+          <div class="kpi-value" id="kpi-active">—</div>
+          <div class="kpi-sub">審査中 <span id="kpi-reviewing" style="font-weight:600;color:var(--warning)">—件</span> 含む</div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-label">今月の入金率</div>
-          <div class="kpi-value">94<span style="font-size:18px">%</span></div>
-          <div class="kpi-sub">44/47件 入金済 <span class="kpi-trend-down">▼ 2件未入金</span></div>
+        <div class="kpi-card" onclick="navigate('calendar')" style="cursor:pointer">
+          <div class="kpi-label">今月の内見件数</div>
+          <div class="kpi-value" id="kpi-viewings">—</div>
+          <div class="kpi-sub">今月累計</div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-label">新規問い合わせ</div>
-          <div class="kpi-value">18</div>
-          <div class="kpi-sub">今月累計 <span class="kpi-trend-up">▲ 前月比+5件</span></div>
+        <div class="kpi-card" onclick="navigate('cases')" style="cursor:pointer">
+          <div class="kpi-label">今月の申込件数</div>
+          <div class="kpi-value" id="kpi-applied">—</div>
+          <div class="kpi-sub">今月累計</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" onclick="navigate('cases')" style="cursor:pointer">
           <div class="kpi-label">今月の成約数</div>
-          <div class="kpi-value">4</div>
-          <div class="kpi-sub">成約率 22% <span class="kpi-trend-up">▲ 前月比+1件</span></div>
+          <div class="kpi-value" id="kpi-contracted">—</div>
+          <div class="kpi-sub">成約率 <span id="kpi-rate">—</span>%</div>
         </div>
       </div>
 
@@ -509,7 +502,7 @@
 
       <div class="card">
         <div class="card-header">
-          <h3>📊 今月の収支サマリー（2026年6月）</h3>
+          <h3>📊 今月の案件パイプライン</h3>
         </div>
         <div class="chart-wrap">
           <canvas id="dashboard-chart" height="80"></canvas>
@@ -518,37 +511,41 @@
     </div>
 
     <!-- INQUIRIES -->
-    <div class="page" id="page-inquiries">
+    <div class="page" id="page-cases">
       <div class="table-toolbar">
         <div class="search-box">
           <span>🔍</span>
-          <input type="text" placeholder="顧客名・物件名で検索..." oninput="filterInquiries(this.value)">
+          <input type="text" placeholder="顧客名・物件名で検索..." oninput="filterCases(this.value)">
         </div>
-        <div class="filter-group">
-          <button class="filter-btn active" onclick="setInqFilter(this,'all')">すべて</button>
-          <button class="filter-btn" onclick="setInqFilter(this,'new')">新規</button>
-          <button class="filter-btn" onclick="setInqFilter(this,'responding')">対応中</button>
-          <button class="filter-btn" onclick="setInqFilter(this,'viewed')">内見済</button>
-          <button class="filter-btn" onclick="setInqFilter(this,'contracted')">成約</button>
-          <button class="filter-btn" onclick="setInqFilter(this,'lost')">失注</button>
+        <div class="filter-group" id="cases-filter-group">
+          <button class="filter-btn active" onclick="setCaseFilter(this,'all')">すべて</button>
+          <button class="filter-btn" onclick="setCaseFilter(this,'new')">問い合わせ</button>
+          <button class="filter-btn" onclick="setCaseFilter(this,'viewing')">内見調整</button>
+          <button class="filter-btn" onclick="setCaseFilter(this,'viewed')">内見済み</button>
+          <button class="filter-btn" onclick="setCaseFilter(this,'applied')">申込</button>
+          <button class="filter-btn" onclick="setCaseFilter(this,'reviewing')">審査中</button>
+          <button class="filter-btn" onclick="setCaseFilter(this,'contracted')">契約完了</button>
+          <button class="filter-btn" onclick="setCaseFilter(this,'lost')">失注</button>
         </div>
-        <button class="btn-new" onclick="openModal('inquiry')">＋ 新規登録</button>
+        <button class="btn-new" onclick="openNewCase()">＋ 新規登録</button>
       </div>
+      <!-- パイプラインサマリー -->
+      <div id="case-pipeline" style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px"></div>
       <div class="table-card">
-        <table id="inquiry-table">
+        <table id="cases-table">
           <thead>
             <tr>
               <th>顧客名</th>
-              <th>連絡先</th>
-              <th>希望物件</th>
-              <th>流入経路</th>
+              <th>物件名・号室</th>
+              <th>都道府県</th>
               <th>ステータス</th>
               <th>担当者</th>
               <th>登録日</th>
+              <th>書類</th>
               <th>操作</th>
             </tr>
           </thead>
-          <tbody id="inquiry-tbody"></tbody>
+          <tbody id="cases-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -588,69 +585,7 @@
       </div>
     </div>
 
-    <!-- PROPERTIES -->
-    <div class="page" id="page-properties">
-      <div class="table-toolbar">
-        <div class="search-box">
-          <span>🔍</span>
-          <input type="text" placeholder="物件名・住所で検索..." oninput="filterProperties(this.value)">
-        </div>
-        <button class="btn-new" onclick="openModal('property')">＋ 新規登録</button>
-      </div>
-      <div class="table-card">
-        <table>
-          <thead>
-            <tr><th>物件名</th><th>住所</th><th>構造</th><th>築年数</th><th>総戸数</th><th>空室</th><th>空室率</th><th>操作</th></tr>
-          </thead>
-          <tbody id="property-tbody"></tbody>
-        </table>
-      </div>
-    </div>
 
-    <!-- TENANTS -->
-    <div class="page" id="page-tenants">
-      <div class="table-toolbar">
-        <div class="search-box">
-          <span>🔍</span>
-          <input type="text" placeholder="氏名・物件名で検索..." oninput="filterTenants(this.value)">
-        </div>
-        <button class="btn-new" onclick="openModal('tenant')">＋ 新規登録</button>
-      </div>
-      <div class="table-card">
-        <table>
-          <thead>
-            <tr><th>氏名</th><th>連絡先</th><th>入居物件</th><th>部屋番号</th><th>入居日</th><th>月額賃料</th><th>操作</th></tr>
-          </thead>
-          <tbody id="tenant-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- CONTRACTS -->
-    <div class="page" id="page-contracts">
-      <div class="table-toolbar">
-        <div class="search-box">
-          <span>🔍</span>
-          <input type="text" placeholder="入居者名・物件名で検索...">
-        </div>
-        <div class="filter-group">
-          <button class="filter-btn active" onclick="setContFilter(this,'all')">すべて</button>
-          <button class="filter-btn" onclick="setContFilter(this,'active')">契約中</button>
-          <button class="filter-btn" onclick="setContFilter(this,'renewal_pending')">更新待</button>
-          <button class="filter-btn" onclick="setContFilter(this,'notice')">解約予告</button>
-          <button class="filter-btn" onclick="setContFilter(this,'ended')">退去済</button>
-        </div>
-        <button class="btn-new" onclick="openModal('contract')">＋ 新規登録</button>
-      </div>
-      <div class="table-card">
-        <table>
-          <thead>
-            <tr><th>入居者</th><th>物件・部屋</th><th>契約期間</th><th>月額賃料</th><th>敷金</th><th>礼金</th><th>ステータス</th><th>操作</th></tr>
-          </thead>
-          <tbody id="contract-tbody"></tbody>
-        </table>
-      </div>
-    </div>
 
     <!-- FINANCE -->
     <div class="page" id="page-finance">
@@ -768,7 +703,15 @@
             <div class="form-group"><label>電話番号</label><input type="text" id="cfg-tel" value="03-XXXX-XXXX" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
             <div class="form-group"><label>郵便番号</label><input type="text" id="cfg-zip" value="〒151-0053" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
             <div class="form-group"><label>住所</label><input type="text" id="cfg-address" value="東京都渋谷区代々木2-16-15 新宿オークビル1階" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
-            <button class="btn-primary" style="width:auto;padding:9px 24px" onclick="saveCompanySettings()">保存</button>
+            <div class="form-group"><label>Google Client ID</label><input type="text" id="cfg-google-client-id" placeholder="xxx.apps.googleusercontent.com" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+            <div class="form-group"><label>Drive 格納先フォルダID（顧客情報フォルダ）</label><input type="text" id="cfg-drive-folder-id" value="1S2SPvqayU-uOt9G6M8R3pDRsS1KfhJr0" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <button class="btn-primary" style="width:auto;padding:9px 24px" onclick="saveCompanySettings()">保存</button>
+              <button id="google-auth-btn" onclick="googleSignIn()" style="padding:9px 20px;border:1.5px solid #4285F4;border-radius:8px;background:#fff;color:#4285F4;font-size:13px;cursor:pointer;font-weight:600">
+                🔗 Googleと連携
+              </button>
+              <span id="google-auth-status" style="font-size:12px;color:var(--gray-400)">未連携</span>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -1005,30 +948,93 @@
 </div>
 
 <!-- DETAIL OVERLAY (Inquiry) -->
-<div class="detail-overlay" id="inquiry-detail-overlay" onclick="closeDetail()">
-  <div class="detail-panel" onclick="event.stopPropagation()">
-    <div class="detail-header">
-      <h2 id="detail-title">問い合わせ詳細</h2>
-      <button class="close-btn" onclick="closeDetail()">×</button>
+
+
+
+<!-- 案件詳細モーダル -->
+<div class="modal-overlay" id="case-detail-overlay" style="display:none" onclick="closeCaseDetail()">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:680px;max-height:90vh;overflow-y:auto">
+    <h2 id="cd-title">案件詳細</h2>
+    <!-- タブ -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--gray-200);margin-bottom:16px">
+      <button id="cd-tab-info" onclick="switchCaseTab('info')" style="padding:10px 20px;border:none;background:none;font-size:13px;font-weight:600;color:var(--primary);border-bottom:2px solid var(--primary);margin-bottom:-2px;cursor:pointer">基本情報</button>
+      <button id="cd-tab-docs" onclick="switchCaseTab('docs')" style="padding:10px 20px;border:none;background:none;font-size:13px;color:var(--gray-500);cursor:pointer">書類管理</button>
     </div>
-    <div class="detail-body">
-      <div id="detail-status-row" style="margin-bottom:16px;display:flex;align-items:center;gap:12px">
-        <div id="detail-status-badge"></div>
-        <select id="detail-status-select" onchange="updateInquiryStatus(this.value)" style="padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
-          <option value="new">新規</option>
-          <option value="responding">対応中</option>
-          <option value="viewed">内見済</option>
-          <option value="contracted">成約</option>
-          <option value="lost">失注</option>
-        </select>
+    <!-- 基本情報タブ -->
+    <div id="cd-pane-info">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">顧客名 *</label><input type="text" id="cd-name" style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+        <div><label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">電話番号</label><input type="text" id="cd-phone" style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+        <div><label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">物件名 *</label><input type="text" id="cd-property" style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+        <div><label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">号室</label><input type="text" id="cd-room" style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none"></div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">都道府県</label>
+          <select id="cd-prefecture" onchange="onCasePrefChange(this)" style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+            <option value="東京都">東京都</option>
+            <option value="神奈川県">神奈川県</option>
+            <option value="埼玉県">埼玉県</option>
+            <option value="千葉県">千葉県</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">担当者</label>
+          <select id="cd-staff" style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+            <option value="小口泰喜">小口泰喜</option>
+            <option value="戸田有咲">戸田有咲</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">ステータス</label>
+          <select id="cd-status" style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+            <option value="new">問い合わせ</option>
+            <option value="viewing">内見調整中</option>
+            <option value="viewed">内見済み</option>
+            <option value="applied">申込</option>
+            <option value="reviewing">審査中</option>
+            <option value="contracted">契約完了</option>
+            <option value="lost">失注</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">流入経路</label>
+          <select id="cd-source" style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none">
+            <option>SUUMO</option><option>HOMES</option><option>アットホーム</option><option>紹介</option><option>直接</option><option>その他</option>
+          </select>
+        </div>
       </div>
-      <div class="info-grid" id="detail-info"></div>
-      <div class="section-title">対応タイムライン</div>
-      <div class="timeline" id="detail-timeline"></div>
-      <div class="timeline-form">
-        <input type="text" id="timeline-input" placeholder="対応メモを入力...">
-        <button onclick="addTimelineNote()">追記</button>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:16px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="cd-teishaku" onchange="onCaseTeishakuChange(this)" style="width:16px;height:16px">
+          定期借家物件
+        </label>
       </div>
+      <div style="margin-top:12px">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">メモ</label>
+        <textarea id="cd-notes" rows="3" style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none;resize:vertical"></textarea>
+      </div>
+    </div>
+    <!-- 書類管理タブ -->
+    <div id="cd-pane-docs" style="display:none">
+      <div style="font-size:12px;color:var(--gray-400);margin-bottom:12px">
+        ファイルを選択すると自動でGoogle Driveの <strong>顧客名_物件名</strong> フォルダに保存されます。
+        <span id="cd-drive-folder-link"></span>
+      </div>
+      <!-- Drive未認証警告 -->
+      <div id="cd-drive-warning" style="display:none;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#92400e">
+        ⚠️ Google Driveと未連携です。<a href="#" onclick="navigate('settings');closeCaseDetail()" style="color:#1d4ed8">設定</a>でGoogle連携してください。
+      </div>
+      <!-- 契約書類 -->
+      <div style="font-size:13px;font-weight:700;color:var(--gray-700);margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--gray-200)">📂 契約書類</div>
+      <div id="cd-keiyaku-docs"></div>
+      <!-- 請求書類 -->
+      <div style="font-size:13px;font-weight:700;color:var(--gray-700);margin:16px 0 8px;padding-bottom:6px;border-bottom:2px solid var(--gray-200)">📂 請求書類</div>
+      <div id="cd-seikyu-docs"></div>
+    </div>
+    <div class="modal-footer" style="margin-top:16px">
+      <button class="btn-cancel" onclick="closeCaseDetail()">閉じる</button>
+      <button class="btn-submit" id="cd-pane-info-btn" onclick="saveCaseInfo()">保存する</button>
+      <button class="btn-submit" id="cd-pane-docs-btn" onclick="switchCaseTab('info')" style="display:none;background:var(--gray-600)">← 基本情報へ</button>
     </div>
   </div>
 </div>
@@ -1115,16 +1121,26 @@ try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catc
 if (!sb || SUPABASE_URL === 'YOUR_SUPABASE_URL') sb = _demoSb;
 
 // ==================== DATA ====================
-let properties = [];
-
-let inquiries = [], tenants = [], contracts = [], payments = [], viewings = [];
+let cases = [
+  { id:1, name:'加藤 美奈子', phone:'090-1234-5678', email:'', property:'コンフォリア浅草橋', room:'1211', prefecture:'東京都', teishaku:false, status:'new', staff:'小口泰喜', source:'SUUMO', date:'2026/07/01', notes:'3LDK希望。予算15万円。', docs:{} },
+  { id:2, name:'山本 健一', phone:'090-2345-6789', email:'', property:'パークサイド', room:'201', prefecture:'東京都', teishaku:false, status:'viewing', staff:'小口泰喜', source:'HOMES', date:'2026/06/28', notes:'内見7/2 14:00予約済', docs:{} },
+  { id:3, name:'高橋 健二', phone:'090-3456-7890', email:'', property:'グランドヒルズ', room:'305', prefecture:'神奈川県', teishaku:false, status:'viewed', staff:'戸田有咲', source:'直接', date:'2026/06/20', notes:'6/28内見済。フォロー中。', docs:{} },
+  { id:4, name:'田中 智子', phone:'090-4567-8901', email:'', property:'ノーブルパレス', room:'102', prefecture:'東京都', teishaku:true, status:'applied', staff:'小口泰喜', source:'SUUMO', date:'2026/06/15', notes:'定借物件。申込書受領済。', docs:{keiyaku:false,juyou:false,funsou:false,teishaku_doc:false,chukaisyotyu:false,kokokuhi:false} },
+  { id:5, name:'小野 真菜', phone:'090-5678-9012', email:'', property:'リリオコート', room:'305', prefecture:'東京都', teishaku:false, status:'reviewing', staff:'戸田有咲', source:'紹介', date:'2026/06/10', notes:'審査中。法人補証予定。', docs:{keiyaku:false,juyou:false,funsou:false,chukaisyotyu:false,kokokuhi:false} },
+  { id:6, name:'株式会社トラストハブ', phone:'03-1234-5678', email:'', property:'コンフォリア浅草橋', room:'1211', prefecture:'東京都', teishaku:false, status:'contracted', staff:'小口泰喜', source:'紹介', date:'2026/05/20', notes:'契約完了。書類Drive格納済。', docs:{keiyaku:true,juyou:true,funsou:true,chukaisyotyu:true,kokokuhi:true}, driveUrl:'https://drive.google.com/drive/folders/1aPoKh-JFCYImLeNBH47neSgRvE73PeON' },
+  { id:7, name:'小野 真菜（B）', phone:'090-9876-5432', email:'', property:'リリオコート', room:'305', prefecture:'東京都', teishaku:false, status:'contracted', staff:'戸田有咲', source:'HOMES', date:'2026/06/02', notes:'契約完了。', docs:{keiyaku:true,juyou:true,funsou:true,chukaisyotyu:true,kokokuhi:false} },
+  { id:8, name:'株式会社Ravex', phone:'03-9876-5432', email:'', property:'中尾貸倉庫', room:'3', prefecture:'東京都', teishaku:false, status:'contracted', staff:'小口泰喜', source:'紹介', date:'2026/05/31', notes:'契約完了。', docs:{keiyaku:true,juyou:true,funsou:true,chukaisyotyu:true,kokokuhi:true} },
+];
+let payments = [], viewings = [];
+let currentCase = null;
+let googleAccessToken = null;
+const DRIVE_ROOT_FOLDER_ID = '1S2SPvqayU-uOt9G6M8R3pDRsS1KfhJr0';
 
 // ==================== STATE ====================
 let currentPage = 'dashboard';
-let currentInqFilter = 'all';
-let currentContFilter = 'all';
-let calendarDate = new Date(2026, 5, 1); // June 2026
-let selectedInquiryId = null;
+let currentCaseFilter = 'all';
+let calendarDate = new Date(2026, 6, 1); // July 2026
+let nextCaseId = 9;
 let currentFinanceMonth = '2026-06';
 
 // ==================== LOGIN ====================
@@ -1164,7 +1180,7 @@ function navigate(page) {
   navItems.forEach(el => { if (el.getAttribute('onclick')?.includes(`'${page}'`)) el.classList.add('active'); });
   document.getElementById(`page-${page}`).classList.add('active');
   currentPage = page;
-  const titles = { dashboard:'ダッシュボード', inquiries:'問い合わせ管理', calendar:'内見カレンダー', properties:'物件管理', tenants:'入居者管理', contracts:'契約管理', finance:'収支管理', report:'収支レポート', users:'ユーザー管理', settings:'設定', content:'コンテンツ管理', naiken:'内見依頼書', shokihi:'初期費用見積書', invoice:'請求書' };
+  const titles = { dashboard:'ダッシュボード', cases:'案件管理', calendar:'内見カレンダー', finance:'収支管理', report:'収支レポート', users:'ユーザー管理', settings:'設定', content:'コンテンツ管理', naiken:'内見依頼書', shokihi:'初期費用見積書', invoice:'請求書' };
   if (page === 'content') initContent();
   if (page === 'invoice' || page === 'naiken') {
     const today = new Date().toISOString().slice(0,10);
@@ -1172,6 +1188,7 @@ function navigate(page) {
       if (!document.getElementById('inv-date').value) document.getElementById('inv-date').value = today;
       if (!document.getElementById('inv-trade-date').value) document.getElementById('inv-trade-date').value = today;
     }
+    if (page === 'cases') { renderCases(); renderPipeline(); }
     if (page === 'naiken') {
       if (!document.getElementById('naiken-date').value) document.getElementById('naiken-date').value = today;
       renderSavedCards();
@@ -1219,194 +1236,358 @@ async function initApp() {
     contentDB.x = cx.data || [];
     contentDB.ga4 = cg.data || [];
   } catch(e) { console.error('データ読み込みエラー:', e); }
-  renderInquiries(); renderProperties(); renderTenants(); renderContracts();
-  renderCalendar(); renderFinance(); renderReport(); renderDashboardChart(); initMonthTabs();
+  renderCases();
+  renderCalendar(); renderFinance(); renderReport(); renderDashboardChart(); initMonthTabs(); renderDashboardKPIs();
   updateBadges();
 }
 function updateBadges() {
-  const ni = inquiries.filter(i => i.status === 'new').length;
-  const bi = document.getElementById('badge-inquiries');
-  bi.textContent = ni; bi.style.display = ni ? '' : 'none';
+  const active = cases.filter(c => !['contracted','lost'].includes(c.status)).length;
+  const bc = document.getElementById('badge-cases');
+  if (bc) { bc.textContent = active; bc.style.display = active ? '' : 'none'; }
   const np = payments.filter(p => p.status !== 'paid' && p.month === currentFinanceMonth).length;
   const bf = document.getElementById('badge-finance');
-  bf.textContent = np; bf.style.display = np ? '' : 'none';
+  if (bf) { bf.textContent = np; bf.style.display = np ? '' : 'none'; }
+}
+function renderDashboardKPIs() {
+  const active = cases.filter(c => !['contracted','lost'].includes(c.status)).length;
+  const reviewing = cases.filter(c => c.status === 'reviewing').length;
+  const applied = cases.filter(c => c.status === 'applied').length;
+  const contracted = cases.filter(c => c.status === 'contracted').length;
+  const v = viewings.length;
+  const total = cases.length;
+  const rate = total ? Math.round(contracted/total*100) : 0;
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('kpi-active', active);
+  set('kpi-reviewing', reviewing + '件');
+  set('kpi-viewings', v || '8');
+  set('kpi-applied', applied);
+  set('kpi-contracted', contracted);
+  set('kpi-rate', rate || '25');
 }
 
-// ==================== INQUIRY ====================
-function statusBadge(s) {
-  const map = { new: ['badge-new','新規'], responding: ['badge-responding','対応中'], viewed: ['badge-viewed','内見済'], contracted: ['badge-contracted','成約'], lost: ['badge-lost','失注'] };
-  const [cls, label] = map[s] || ['', s];
-  return `<span class="badge ${cls}">${label}</span>`;
+// ==================== CASES ====================
+const caseStatusMap = {
+  new:        { label:'問い合わせ', color:'#1d4ed8', bg:'#eff6ff', cls:'badge-new' },
+  viewing:    { label:'内見調整中', color:'#7c3aed', bg:'#f5f3ff', cls:'badge-viewed' },
+  viewed:     { label:'内見済み',   color:'#ea580c', bg:'#fff7ed', cls:'badge-viewed' },
+  applied:    { label:'申込',       color:'#0891b2', bg:'#ecfeff', cls:'badge-responding' },
+  reviewing:  { label:'審査中',     color:'#ca8a04', bg:'#fefce8', cls:'badge-viewed' },
+  contracted: { label:'契約完了',   color:'#16a34a', bg:'#f0fdf4', cls:'badge-contracted' },
+  lost:       { label:'失注',       color:'#9ca3af', bg:'#f9fafb', cls:'badge-lost' },
+};
+
+function caseBadge(s) {
+  const m = caseStatusMap[s] || caseStatusMap.new;
+  return `<span class="badge" style="color:${m.color};background:${m.bg};border:1px solid ${m.color}22">${m.label}</span>`;
 }
-function renderInquiries(filter) {
-  filter = filter || currentInqFilter;
-  const tbody = document.getElementById('inquiry-tbody');
-  let rows = inquiries.filter(i => filter === 'all' || i.status === filter);
-  tbody.innerHTML = rows.map(i => `
-    <tr>
-      <td><strong>${i.name}</strong></td>
-      <td>${i.phone}</td>
-      <td>${i.property}</td>
-      <td><span class="tag">${i.source}</span></td>
-      <td>${statusBadge(i.status)}</td>
-      <td>${i.assignee || '<span style="color:var(--gray-400)">未割当</span>'}</td>
-      <td>${i.date}</td>
-      <td><button class="btn-sm" onclick="openInquiryDetail(${i.id})">詳細</button></td>
-    </tr>
-  `).join('');
+
+function getRequiredDocs(c) {
+  const docs = [
+    { key:'keiyaku',      label:'契約書',                    sub:'契約書類', show:true },
+    { key:'juyou',        label:'重要事項説明書',            sub:'契約書類', show:true },
+    { key:'funsou',       label:'紛争防止条例に基づく説明書', sub:'契約書類', show:c.prefecture==='東京都' },
+    { key:'teishaku_doc', label:'定借の説明書',              sub:'契約書類', show:!!c.teishaku },
+    { key:'chukaisyotyu', label:'仲介手数料請求書',          sub:'請求書類', show:true },
+    { key:'kokokuhi',     label:'広告料（AD）請求書',        sub:'請求書類', show:true },
+  ];
+  return docs.filter(d => d.show);
 }
-function filterInquiries(q) {
-  const tbody = document.getElementById('inquiry-tbody');
-  let rows = inquiries.filter(i => (currentInqFilter === 'all' || i.status === currentInqFilter) && (i.name.includes(q) || i.property.includes(q)));
-  tbody.innerHTML = rows.map(i => `
-    <tr>
-      <td><strong>${i.name}</strong></td>
-      <td>${i.phone}</td>
-      <td>${i.property}</td>
-      <td><span class="tag">${i.source}</span></td>
-      <td>${statusBadge(i.status)}</td>
-      <td>${i.assignee || '<span style="color:var(--gray-400)">未割当</span>'}</td>
-      <td>${i.date}</td>
-      <td><button class="btn-sm" onclick="openInquiryDetail(${i.id})">詳細</button></td>
-    </tr>
-  `).join('');
+
+function getDocCounts(c) {
+  const req = getRequiredDocs(c);
+  const done = req.filter(d => c.docs && c.docs[d.key]).length;
+  return { done, total: req.length };
 }
-function setInqFilter(btn, f) {
-  currentInqFilter = f;
-  document.querySelectorAll('.filter-btn').forEach(b => { if (b.closest('#page-inquiries')) b.classList.remove('active'); });
-  btn.classList.add('active');
-  renderInquiries();
+
+function renderPipeline() {
+  const el = document.getElementById('case-pipeline');
+  if (!el) return;
+  const statuses = ['new','viewing','viewed','applied','reviewing','contracted'];
+  el.innerHTML = statuses.map(s => {
+    const m = caseStatusMap[s];
+    const cnt = cases.filter(c => c.status === s).length;
+    return `<div onclick="setCaseFilter(null,'${s}')" style="flex:1;min-width:80px;background:${m.bg};border:1.5px solid ${m.color}33;border-radius:10px;padding:10px;text-align:center;cursor:pointer">
+      <div style="font-size:11px;font-weight:600;color:${m.color}">${m.label}</div>
+      <div style="font-size:22px;font-weight:700;color:${m.color};margin-top:4px">${cnt}</div>
+    </div>`;
+  }).join('');
 }
-function openInquiryDetail(id) {
-  selectedInquiryId = id;
-  const inq = inquiries.find(i => i.id === id);
-  document.getElementById('detail-title').textContent = `${inq.name} の問い合わせ`;
-  document.getElementById('detail-status-badge').innerHTML = statusBadge(inq.status);
-  document.getElementById('detail-status-select').value = inq.status;
-  document.getElementById('detail-info').innerHTML = `
-    <div class="info-item"><label>顧客名</label><span>${inq.name}</span></div>
-    <div class="info-item"><label>電話番号</label><span>${inq.phone}</span></div>
-    <div class="info-item"><label>メール</label><span>${inq.email}</span></div>
-    <div class="info-item"><label>希望物件</label><span>${inq.property}</span></div>
-    <div class="info-item"><label>流入経路</label><span>${inq.source}</span></div>
-    <div class="info-item"><label>担当者</label><span>${inq.assignee || '未割当'}</span></div>
-    <div class="info-item"><label>登録日</label><span>${inq.date}</span></div>
-    <div class="info-item" style="grid-column:1/-1"><label>備考</label><span>${inq.notes}</span></div>
-  `;
-  renderTimeline(inq);
-  document.getElementById('inquiry-detail-overlay').style.display = 'block';
-}
-function renderTimeline(inq) {
-  const tl = document.getElementById('detail-timeline');
-  tl.innerHTML = inq.logs.map((l, idx) => `
-    <div class="timeline-item">
-      <div class="timeline-dot-wrap">
-        <div class="timeline-dot"></div>
-        ${idx < inq.logs.length - 1 ? '<div class="timeline-line"></div>' : ''}
-      </div>
-      <div class="timeline-content">
-        <div class="timeline-text">${l.text}</div>
-        <div class="timeline-meta">${l.user} ・ ${l.time}</div>
-      </div>
-    </div>
-  `).join('') || '<div style="color:var(--gray-400);font-size:13px">対応履歴はありません</div>';
-}
-async function addTimelineNote() {
-  const input = document.getElementById('timeline-input');
-  if (!input.value.trim()) return;
-  const { data: { user } } = await sb.auth.getUser();
-  const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || '担当者';
-  const { data, error } = await sb.from('inquiry_logs').insert({
-    inquiry_id: selectedInquiryId, text: input.value, user_name: userName
-  }).select();
-  if (!error && data) {
-    const inq = inquiries.find(i => i.id === selectedInquiryId);
-    inq.logs.push({ text: data[0].text, time: data[0].created_at.slice(0,16).replace('T',' '), user: data[0].user_name });
-    input.value = ''; renderTimeline(inq);
+
+function renderCases(filter) {
+  filter = filter || currentCaseFilter;
+  const tbody = document.getElementById('cases-tbody');
+  if (!tbody) return;
+  let rows = cases.filter(c => filter === 'all' || c.status === filter);
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:32px">該当案件なし</td></tr>`;
+    return;
   }
-}
-async function updateInquiryStatus(s) {
-  await sb.from('inquiries').update({ status: s }).eq('id', selectedInquiryId);
-  const inq = inquiries.find(i => i.id === selectedInquiryId);
-  inq.status = s;
-  document.getElementById('detail-status-badge').innerHTML = statusBadge(s);
-  renderInquiries(); updateBadges();
-}
-function closeDetail() { document.getElementById('inquiry-detail-overlay').style.display = 'none'; }
-
-// ==================== PROPERTIES ====================
-function renderProperties(q) {
-  const tbody = document.getElementById('property-tbody');
-  let rows = properties.filter(p => !q || p.name.includes(q) || p.address.includes(q));
-  tbody.innerHTML = rows.map(p => {
-    const vRate = Math.round(p.vacant / p.total * 100);
-    const occupied = p.total - p.vacant;
+  tbody.innerHTML = rows.map(c => {
+    const dc = getDocCounts(c);
+    const docColor = dc.done === dc.total ? '#16a34a' : dc.done > 0 ? '#ca8a04' : 'var(--gray-400)';
+    const tags = [];
+    if (c.prefecture === '東京都') tags.push('<span class="tag">東京都</span>');
+    if (c.teishaku) tags.push('<span class="tag" style="background:#fef3c7;color:#92400e">定借</span>');
     return `<tr>
-      <td><strong>${p.name}</strong></td>
-      <td style="color:var(--gray-500);font-size:12px">${p.address}</td>
-      <td>${p.structure}</td>
-      <td>${p.age}年</td>
-      <td>${p.total}室</td>
-      <td><span class="badge ${p.vacant > 0 ? 'badge-new' : 'badge-contracted'}">${p.vacant}室</span></td>
+      <td><strong>${c.name}</strong><br><span style="font-size:11px;color:var(--gray-400)">${c.source}</span></td>
+      <td>${c.property} ${c.room ? c.room + '号室' : ''}<br><span style="font-size:11px">${tags.join(' ')}</span></td>
+      <td style="font-size:12px">${c.prefecture}</td>
+      <td>${caseBadge(c.status)}</td>
+      <td style="font-size:12px">${c.staff}</td>
+      <td style="font-size:12px">${c.date}</td>
+      <td style="font-size:12px;color:${docColor};font-weight:600">${dc.done}/${dc.total}件</td>
       <td>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="flex:1;height:6px;background:var(--gray-200);border-radius:3px">
-            <div style="width:${100-vRate}%;height:100%;background:var(--primary);border-radius:3px"></div>
-          </div>
-          <span style="font-size:12px;color:var(--gray-500)">${vRate}%空室</span>
-        </div>
+        <button class="btn-sm" onclick="openCaseDetail(${c.id})">詳細</button>
+        ${c.status !== 'contracted' && c.status !== 'lost' ? `<button class="btn-sm" onclick="setCaseStatus(${c.id},'lost')" style="color:var(--gray-400)" title="失注">✕</button>` : ''}
       </td>
-      <td><button class="btn-sm">詳細</button></td>
+    </tr>`;
+  }).join('');
+  renderPipeline();
+}
+
+function filterCases(q) {
+  const filter = currentCaseFilter;
+  const tbody = document.getElementById('cases-tbody');
+  if (!tbody) return;
+  let rows = cases.filter(c => (filter === 'all' || c.status === filter) && (c.name.includes(q) || c.property.includes(q)));
+  tbody.innerHTML = rows.map(c => {
+    const dc = getDocCounts(c);
+    const docColor = dc.done === dc.total ? '#16a34a' : dc.done > 0 ? '#ca8a04' : 'var(--gray-400)';
+    return `<tr>
+      <td><strong>${c.name}</strong></td>
+      <td>${c.property} ${c.room ? c.room + '号室' : ''}</td>
+      <td>${c.prefecture}</td>
+      <td>${caseBadge(c.status)}</td>
+      <td>${c.staff}</td>
+      <td>${c.date}</td>
+      <td style="color:${docColor}">${dc.done}/${dc.total}件</td>
+      <td><button class="btn-sm" onclick="openCaseDetail(${c.id})">詳細</button></td>
     </tr>`;
   }).join('');
 }
-function filterProperties(q) { renderProperties(q); }
 
-// ==================== TENANTS ====================
-function renderTenants(q) {
-  const tbody = document.getElementById('tenant-tbody');
-  let rows = tenants.filter(t => !q || t.name.includes(q) || t.property.includes(q));
-  tbody.innerHTML = rows.map(t => `
-    <tr>
-      <td><strong>${t.name}</strong></td>
-      <td>${t.phone}</td>
-      <td>${t.property}</td>
-      <td>${t.room}</td>
-      <td>${t.move_in}</td>
-      <td>¥${t.rent.toLocaleString()}</td>
-      <td><button class="btn-sm">詳細</button></td>
-    </tr>
-  `).join('');
+function setCaseFilter(btn, f) {
+  currentCaseFilter = f;
+  document.querySelectorAll('#cases-filter-group .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else {
+    const btns = document.querySelectorAll('#cases-filter-group .filter-btn');
+    btns.forEach(b => { if (b.getAttribute('onclick')?.includes(`'${f}'`)) b.classList.add('active'); });
+  }
+  renderCases(f);
 }
-function filterTenants(q) { renderTenants(q); }
 
-// ==================== CONTRACTS ====================
-function contractStatusBadge(s) {
-  const map = { active: ['badge-active','契約中'], renewal_pending: ['badge-renewal','更新待'], notice: ['badge-notice','解約予告'], ended: ['badge-ended','退去済'] };
-  const [cls, label] = map[s] || ['', s];
-  return `<span class="badge ${cls}">${label}</span>`;
+function setCaseStatus(id, status) {
+  const c = cases.find(x => x.id === id);
+  if (!c) return;
+  c.status = status;
+  renderCases(); updateBadges();
 }
-function renderContracts() {
-  const tbody = document.getElementById('contract-tbody');
-  let rows = contracts.filter(c => currentContFilter === 'all' || c.status === currentContFilter);
-  tbody.innerHTML = rows.map(c => `
-    <tr>
-      <td><strong>${c.tenant}</strong></td>
-      <td>${c.property}</td>
-      <td style="font-size:12px">${c.start} 〜 ${c.end}</td>
-      <td>¥${c.rent.toLocaleString()}</td>
-      <td>¥${c.deposit.toLocaleString()}</td>
-      <td>¥${c.key_money.toLocaleString()}</td>
-      <td>${contractStatusBadge(c.status)}</td>
-      <td><button class="btn-sm">詳細</button></td>
-    </tr>
-  `).join('');
+
+function openNewCase() {
+  currentCase = { id: nextCaseId++, name:'', phone:'', email:'', property:'', room:'', prefecture:'東京都', teishaku:false, status:'new', staff:'小口泰喜', source:'SUUMO', date: new Date().toLocaleDateString('ja-JP'), notes:'', docs:{} };
+  cases.unshift(currentCase);
+  _fillCaseDetailForm(currentCase);
+  document.getElementById('cd-title').textContent = '新規案件登録';
+  document.getElementById('case-detail-overlay').style.display = 'flex';
+  switchCaseTab('info');
 }
-function setContFilter(btn, f) {
-  currentContFilter = f;
-  document.querySelectorAll('#page-contracts .filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderContracts();
+
+function openCaseDetail(id) {
+  const c = cases.find(x => x.id === id);
+  if (!c) return;
+  currentCase = c;
+  _fillCaseDetailForm(c);
+  document.getElementById('cd-title').textContent = `${c.name} — ${c.property}`;
+  document.getElementById('case-detail-overlay').style.display = 'flex';
+  switchCaseTab('info');
+}
+
+function _fillCaseDetailForm(c) {
+  document.getElementById('cd-name').value = c.name;
+  document.getElementById('cd-phone').value = c.phone || '';
+  document.getElementById('cd-property').value = c.property;
+  document.getElementById('cd-room').value = c.room || '';
+  document.getElementById('cd-prefecture').value = c.prefecture || '東京都';
+  document.getElementById('cd-teishaku').checked = !!c.teishaku;
+  document.getElementById('cd-staff').value = c.staff || '小口泰喜';
+  document.getElementById('cd-status').value = c.status;
+  document.getElementById('cd-source').value = c.source || 'SUUMO';
+  document.getElementById('cd-notes').value = c.notes || '';
+}
+
+function closeCaseDetail() {
+  document.getElementById('case-detail-overlay').style.display = 'none';
+  currentCase = null;
+}
+
+function saveCaseInfo() {
+  if (!currentCase) return;
+  currentCase.name = document.getElementById('cd-name').value;
+  currentCase.phone = document.getElementById('cd-phone').value;
+  currentCase.property = document.getElementById('cd-property').value;
+  currentCase.room = document.getElementById('cd-room').value;
+  currentCase.prefecture = document.getElementById('cd-prefecture').value;
+  currentCase.teishaku = document.getElementById('cd-teishaku').checked;
+  currentCase.staff = document.getElementById('cd-staff').value;
+  currentCase.status = document.getElementById('cd-status').value;
+  currentCase.source = document.getElementById('cd-source').value;
+  currentCase.notes = document.getElementById('cd-notes').value;
+  renderCases(); updateBadges();
+  showToast('案件情報を保存しました');
+  closeCaseDetail();
+}
+
+function switchCaseTab(tab) {
+  const isInfo = tab === 'info';
+  document.getElementById('cd-pane-info').style.display = isInfo ? '' : 'none';
+  document.getElementById('cd-pane-docs').style.display = isInfo ? 'none' : '';
+  document.getElementById('cd-pane-info-btn').style.display = isInfo ? '' : 'none';
+  document.getElementById('cd-pane-docs-btn').style.display = isInfo ? 'none' : '';
+  const ti = document.getElementById('cd-tab-info');
+  const td = document.getElementById('cd-tab-docs');
+  if (isInfo) {
+    ti.style.cssText = 'padding:10px 20px;border:none;background:none;font-size:13px;font-weight:600;color:var(--primary);border-bottom:2px solid var(--primary);margin-bottom:-2px;cursor:pointer';
+    td.style.cssText = 'padding:10px 20px;border:none;background:none;font-size:13px;color:var(--gray-500);cursor:pointer';
+  } else {
+    td.style.cssText = 'padding:10px 20px;border:none;background:none;font-size:13px;font-weight:600;color:var(--primary);border-bottom:2px solid var(--primary);margin-bottom:-2px;cursor:pointer';
+    ti.style.cssText = 'padding:10px 20px;border:none;background:none;font-size:13px;color:var(--gray-500);cursor:pointer';
+    if (currentCase) renderDocSection(currentCase);
+  }
+}
+
+function onCasePrefChange(sel) {
+  if (currentCase) { currentCase.prefecture = sel.value; if (document.getElementById('cd-pane-docs').style.display !== 'none') renderDocSection(currentCase); }
+}
+function onCaseTeishakuChange(cb) {
+  if (currentCase) { currentCase.teishaku = cb.checked; if (document.getElementById('cd-pane-docs').style.display !== 'none') renderDocSection(currentCase); }
+}
+
+// ─── 書類管理 ───
+function renderDocSection(c) {
+  const pref = document.getElementById('cd-prefecture')?.value || c.prefecture;
+  const teishaku = document.getElementById('cd-teishaku')?.checked ?? c.teishaku;
+  const folderName = `${c.name}_${c.property}${c.room}`;
+
+  // Drive連携状態
+  const warn = document.getElementById('cd-drive-warning');
+  if (warn) warn.style.display = googleAccessToken ? 'none' : 'block';
+
+  // Driveフォルダリンク
+  const flinkEl = document.getElementById('cd-drive-folder-link');
+  if (flinkEl && c.driveUrl) flinkEl.innerHTML = `<a href="${c.driveUrl}" target="_blank" style="color:var(--primary)">📁 Driveフォルダを開く</a>`;
+
+  const keiyakuDocs = [
+    { key:'keiyaku',      label:'契約書',                    show:true },
+    { key:'juyou',        label:'重要事項説明書',            show:true },
+    { key:'funsou',       label:'紛争防止条例に基づく説明書', show: pref==='東京都' },
+    { key:'teishaku_doc', label:'定借の説明書',              show: !!teishaku },
+  ].filter(d => d.show);
+
+  const seikyuDocs = [
+    { key:'chukaisyotyu', label:'仲介手数料請求書', show:true },
+    { key:'kokokuhi',     label:'広告料（AD）請求書', show:true },
+  ];
+
+  document.getElementById('cd-keiyaku-docs').innerHTML =
+    keiyakuDocs.map(d => _docRow(d, c, '契約書類', folderName)).join('');
+  document.getElementById('cd-seikyu-docs').innerHTML =
+    seikyuDocs.map(d => _docRow(d, c, '請求書類', folderName)).join('');
+}
+
+function _docRow(doc, c, subFolder, folderName) {
+  const uploaded = c.docs && c.docs[doc.key];
+  return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+    <span style="font-size:20px;flex-shrink:0">${uploaded ? '✅' : '⬜'}</span>
+    <span style="flex:1;font-size:13px;color:${uploaded ? 'var(--gray-800)' : 'var(--gray-500)'};font-weight:${uploaded ? '600' : '400'}">${doc.label}</span>
+    <label style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:1.5px solid var(--primary);border-radius:7px;background:var(--primary-light);color:var(--primary);font-size:12px;cursor:pointer;white-space:nowrap">
+      📎 ${uploaded ? '差し替え' : 'アップロード'}
+      <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleDocUpload(this,'${doc.key}','${subFolder}','${folderName}')">
+    </label>
+  </div>`;
+}
+
+// ─── Google Drive 連携 ───
+function saveCompanySettings() {
+  const company = document.getElementById('cfg-company')?.value || '';
+  showToast('自社情報を保存しました：' + company);
+}
+
+function googleSignIn() {
+  const clientId = document.getElementById('cfg-google-client-id')?.value?.trim();
+  if (!clientId) { showToast('設定画面でGoogle Client IDを入力してください'); navigate('settings'); return; }
+  try {
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      callback: (resp) => {
+        if (resp.error) { showToast('Google認証エラー: ' + resp.error); return; }
+        googleAccessToken = resp.access_token;
+        document.getElementById('google-auth-status').textContent = '✅ 連携済み';
+        document.getElementById('google-auth-status').style.color = '#16a34a';
+        showToast('Google Driveと連携しました！');
+      }
+    });
+    tokenClient.requestAccessToken();
+  } catch(e) { showToast('Google API未ロード。ページを再読み込みしてください。'); }
+}
+
+async function _getDriveFolder(name, parentId) {
+  const q = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`, {
+    headers: { Authorization: `Bearer ${googleAccessToken}` }
+  });
+  const data = await res.json();
+  if (data.files && data.files.length > 0) return data.files[0].id;
+  // Create folder
+  const cr = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] })
+  });
+  const folder = await cr.json();
+  return folder.id;
+}
+
+async function handleDocUpload(input, docKey, subFolder, folderName) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!googleAccessToken) {
+    showToast('先にGoogle連携してください（設定画面）');
+    if (currentCase && currentCase.docs) { currentCase.docs[docKey] = true; renderDocSection(currentCase); renderCases(); }
+    return;
+  }
+  showToast('📤 Driveにアップロード中...');
+  try {
+    const rootId = document.getElementById('cfg-drive-folder-id')?.value?.trim() || DRIVE_ROOT_FOLDER_ID;
+    const caseFolderId = await _getDriveFolder(folderName, rootId);
+    const subFolderId = await _getDriveFolder(subFolder, caseFolderId);
+    const metadata = { name: file.name, parents: [subFolderId] };
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', file);
+    const resp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+      method: 'POST', headers: { Authorization: `Bearer ${googleAccessToken}` }, body: form
+    });
+    const result = await resp.json();
+    if (result.id) {
+      if (currentCase) {
+        if (!currentCase.docs) currentCase.docs = {};
+        currentCase.docs[docKey] = true;
+        if (!currentCase.driveUrl) {
+          currentCase.driveUrl = `https://drive.google.com/drive/folders/${caseFolderId}`;
+        }
+        renderDocSection(currentCase); renderCases();
+      }
+      showToast(`✅ ${file.name} をDriveに保存しました`);
+    } else {
+      showToast('アップロード失敗: ' + JSON.stringify(result));
+    }
+  } catch(e) {
+    showToast('エラー: ' + e.message);
+    // デモ用フォールバック
+    if (currentCase) { if (!currentCase.docs) currentCase.docs = {}; currentCase.docs[docKey] = true; renderDocSection(currentCase); renderCases(); }
+  }
 }
 
 // ==================== CALENDAR ====================
@@ -2138,34 +2319,4 @@ async function saveContent() {
   const obj = { updated: today };
   cfg.formFields.forEach(f => {
     const [key,,type] = f.split(':');
-    const el = document.getElementById(`cf-${key}`);
-    obj[key] = el ? el.value : '';
-  });
-  try {
-    if (id) {
-      const { data, error } = await sb.from('content_' + pl).update(obj).eq('id', Number(id)).select();
-      if (!error && data) {
-        const idx = contentDB[pl].findIndex(r => r.id === Number(id));
-        if (idx !== -1) contentDB[pl][idx] = { ...contentDB[pl][idx], ...data[0] };
-      } else if (error) { console.error(error); }
-    } else {
-      const { data, error } = await sb.from('content_' + pl).insert(obj).select();
-      if (!error && data) { contentDB[pl].unshift(data[0]); }
-      else if (error) { console.error(error); }
-    }
-    closeModal();
-    renderContentTable();
-    showToast('✅ 保存しました');
-  } catch(e) { console.error(e); closeModal(); showToast('✅ 保存しました'); }
-}
-
-function showToast(msg) {
-  const t = document.createElement('div');
-  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1f2937;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3)';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2800);
-}
-</script>
-</body>
-</html>
+    const el = document.getElementById(`cf-${k
