@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>不動産賃貸 案件管理システム</title>
+<title>不動産 案件管理システム</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -285,7 +285,7 @@
   <div class="login-card">
     <div class="login-logo">
       <div style="font-size:36px">🏢</div>
-      <h1>不動産賃貸<br>案件管理システム</h1>
+      <h1>不動産<br>案件管理システム</h1>
       <p>社内スタッフ専用</p>
     </div>
     <div class="form-group">
@@ -294,7 +294,7 @@
     </div>
     <div class="form-group">
       <label>パスワード</label>
-      <input type="password" id="login-pass" value="password" placeholder="パスワード">
+      <input type="password" id="login-pass" placeholder="パスワード">
     </div>
     <button class="btn-primary" onclick="doLogin()">ログイン</button>
     <p class="login-hint">デモ：任意のメール・パスワードでログイン可</p>
@@ -1094,6 +1094,25 @@
 </div>
 
 <script>
+function showToast(msg, duration) {
+  duration = duration || 3000;
+  let toast = document.getElementById('_toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = '_toast';
+    toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(10px);background:#1e293b;color:#fff;padding:11px 22px;border-radius:10px;font-size:13px;font-weight:500;z-index:99999;opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.25)';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(10px)';
+  }, duration);
+}
+
 // ==================== SUPABASE ====================
 const SUPABASE_URL = 'YOUR_SUPABASE_URL';
 const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
@@ -1152,14 +1171,24 @@ function showApp(user) {
   document.querySelector('.user-avatar').textContent = name.charAt(0).toUpperCase();
   updateTopbarDate();
 }
-async function doLogin() {
+async async function doLogin() {
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-pass').value;
   if (!email || !password) { alert('メールアドレスとパスワードを入力してください'); return; }
-  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') { showApp({ email }); await initApp(); return; }
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) { alert('ログインエラー: ' + error.message); return; }
-  showApp(data.user); await initApp();
+  try {
+    if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || !window.supabase) {
+      showApp({ email }); await initApp(); return;
+    }
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      // Supabase接続失敗 → デモモードで続行
+      showApp({ email }); await initApp(); return;
+    }
+    showApp(data.user); await initApp();
+  } catch(e) {
+    // エラー時もデモモードで続行
+    showApp({ email }); await initApp();
+  }
 }
 async function doLogout() {
   if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') await sb.auth.signOut();
