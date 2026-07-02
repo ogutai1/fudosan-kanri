@@ -2319,4 +2319,31 @@ async function saveContent() {
   const obj = { updated: today };
   cfg.formFields.forEach(f => {
     const [key,,type] = f.split(':');
-    const el = document.getElementById(`cf-${k
+    const el = document.getElementById(`cf-${key}`);
+    if (el) obj[key] = el.value;
+  });
+  const { error } = id
+    ? await sb.from('content_' + pl).update(obj).eq('id', id)
+    : await sb.from('content_' + pl).insert(obj);
+  if (!error) {
+    await loadContent(pl);
+    document.getElementById('modal-overlay').classList.remove('show');
+    showToast('✅ 保存しました');
+  } else {
+    showToast('❌ 保存失敗: ' + error.message);
+  }
+}
+
+// ==================== NAIKEN (内見依頼書) ====================
+// Rendered inline via page-naiken HTML — no additional JS needed here.
+
+// ==================== INVOICE ====================
+// Rendered inline via page-invoice HTML — no additional JS needed here.
+
+// ==================== INIT ====================
+window.addEventListener('DOMContentLoaded', () => {
+  initApp();
+});
+</script>
+</body>
+</html>
