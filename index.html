@@ -813,6 +813,10 @@
               <div id="naiken-saved-cards-grid" style="display:flex;gap:8px;flex-wrap:wrap"></div>
             </div>
           </div>
+          <div class="doc-form-group" style="margin-top:12px">
+            <label>備考</label>
+            <textarea id="naiken-bikou" rows="3" placeholder="特記事項・連絡事項など" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;outline:none;resize:vertical;font-family:inherit"></textarea>
+          </div>
           <div class="doc-actions">
             <button class="btn-pdf" onclick="generateNaikenPDF()">📄 PDF を生成・ダウンロード</button>
           </div>
@@ -2064,10 +2068,11 @@ async function generateNaikenPDF() {
   const dateVal   = document.getElementById('naiken-date').value      || '';
   const timeSel   = document.getElementById('naiken-time').value;
   const timeVal   = timeSel === 'other' ? (document.getElementById('naiken-time-other').value || '') : timeSel;
+  const bikou     = document.getElementById('naiken-bikou')?.value || '';
   const cardImg   = document.getElementById('naiken-card-preview');
   const cardHtml  = (cardImg && cardImg.src && cardImg.style.display !== 'none')
-    ? '<div style="margin-top:10mm"><p style="font-size:9pt;margin:0 0 2mm">【担当者名刺】</p><img src="' + cardImg.src + '" style="max-width:85mm;max-height:55mm;object-fit:contain;display:block"></div>' : '';
-  const rows = [['物件名',property],['号室',room],['内見日',dateVal.replace(/-/g,'/')],['時間',timeVal]];
+    ? '<div style="margin-top:10mm"><p style="font-size:9pt;margin:0 0 2mm">【担当者名刺】</p><img src="' + cardImg.src + '" style="width:91mm;height:55mm;object-fit:contain;display:block;border:0.3mm solid #ddd"></div>' : '';
+  const rows = [['物件名',property],['号室',room],['内見日',dateVal.replace(/-/g,'/')],['時間',timeVal],...(bikou ? [['備考',bikou]] : [])];
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;z-index:-1';
   wrap.innerHTML = '<div id="_pdf_n" style="width:794px;padding:53px;font-family:\'Hiragino Kaku Gothic ProN\',\'Hiragino Sans\',\'Meiryo\',\'Yu Gothic\',sans-serif;font-size:10pt;line-height:1.5;color:#000;background:#fff;box-sizing:border-box">'
